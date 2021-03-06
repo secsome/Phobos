@@ -32,6 +32,9 @@
     <ClCompile Include="src\Ext\WeaponType\Body.cpp" />
     <ClCompile Include="src\Ext\WeaponType\Hooks.cpp" />
     <ClCompile Include="src\Ext\WeaponType\Hooks.DiskLaserRadius.cpp" />
+    <ClCompile Include="src\Misc\ExtTheater\Body.cpp" />
+    <ClCompile Include="src\Misc\ExtTheater\Hooks.cpp" />
+    <ClCompile Include="src\Misc\ExtTheater\TheaterProto.cpp" />
     <ClCompile Include="src\Misc\Savegame.cpp" />
     <ClCompile Include="src\Misc\ExtendedToolTips.cpp" />
     <ClCompile Include="src\Misc\Selection.cpp" />
@@ -48,6 +51,7 @@
     <ClCompile Include="src\Utilities\EnumFunctions.cpp" />
     <ClCompile Include="src\Utilities\GeneralUtils.cpp" />
     <ClCompile Include="src\Ext\TechnoType\Hooks.VehicleToBuildingMCFix.cpp" />
+    <ClCompile Include="src\Misc\ExtTheater\trim.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Commands\ObjectInfo.h" />
@@ -66,6 +70,8 @@
     <ClInclude Include="src\Ext\Techno\Body.h" />
     <ClInclude Include="src\Ext\WeaponType\Body.h" />
     <ClInclude Include="src\Misc\ExtendedToolTips.h" />
+    <ClInclude Include="src\Misc\ExtTheater\Body.h" />
+    <ClInclude Include="src\Misc\ExtTheater\TheaterProto.h" />
     <ClInclude Include="src\Misc\Stream.h" />
     <ClInclude Include="src\Phobos.version.h" />
     <ClInclude Include="src\Utilities\Concepts.h" />
@@ -84,6 +90,7 @@
     <ClInclude Include="src\Utilities\Parser.h" />
     <ClInclude Include="src\Utilities\Template.h" />
     <ClInclude Include="src\Utilities\TemplateDef.h" />
+    <ClInclude Include="src\Misc\ExtTheater\trim.h" />
     <ClInclude Include="YRpp\GameTextManager.h" />
   </ItemGroup>
   <ItemGroup>
