@@ -116,3 +116,36 @@ DEFINE_HOOK(43E0C4, BuildingClass_Draw_43DA80_TurretMultiOffset, 0)
 
 	return 0x43E0E8;
 }
+/*
+DEFINE_HOOK(700C58, TechnoClass_CanPlayerMove_IsStationary, 6)
+{
+	GET(TechnoClass*, pThis, ESI);
+
+	return pThis->GetTechnoType()->Speed ?
+		0 : 0x700C62;
+}
+*/
+DEFINE_HOOK(736B66, UnitClass_RotationAI_IsStationary, 6)
+{
+	GET(UnitTypeClass*, pType, ECX);
+
+	return pType->Speed ?
+		0 : 0x736BE2;
+}
+
+DEFINE_HOOK(74038F, UnitClass_WhatAction_IsStationary_0, 6)
+{
+	GET(UnitTypeClass*, pType, EAX);
+
+	return pType->Speed ?
+		0 : 0x7403A3;
+}
+
+DEFINE_HOOK(740744, UnitClass_WhatAction_IsStationary_1, 6)
+{
+	GET(UnitTypeClass*, pType, EAX);
+
+	return pType->Speed ?
+		0 : 0x740760;
+}
+
