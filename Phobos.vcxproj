@@ -34,6 +34,7 @@
     <ClCompile Include="src\Ext\Bullet\Body.cpp" />
     <ClCompile Include="src\Ext\Bullet\Hook.cpp" />
     <ClCompile Include="src\Ext\House\Body.cpp" />
+    <ClCompile Include="src\Ext\IsometricTileType\Body.cpp" />
     <ClCompile Include="src\Ext\RadSite\Body.cpp" />
     <ClCompile Include="src\Ext\RadSite\Hooks.cpp" />
     <ClCompile Include="src\Ext\Scenario\Body.cpp" />
@@ -41,6 +42,7 @@
     <ClCompile Include="src\Ext\Script\Body.cpp" />
     <ClCompile Include="src\Ext\Script\Hooks.cpp" />
     <ClCompile Include="src\Ext\Rules\Body.cpp" />
+    <ClCompile Include="src\Ext\IsometricTileType\Hooks.cpp" />
     <ClCompile Include="src\Ext\SWType\Body.cpp" />
     <ClCompile Include="src\Ext\Side\Body.cpp" />
     <ClCompile Include="src\Ext\Side\Hooks.cpp" />
@@ -106,6 +108,7 @@
     <ClInclude Include="src\Ext\Scenario\Body.h" />
     <ClInclude Include="src\Ext\Script\Body.h" />
     <ClInclude Include="src\Ext\Rules\Body.h" />
+    <ClInclude Include="src\Ext\IsometricTileType\Body.h" />
     <ClInclude Include="src\Ext\SWType\Body.h" />
     <ClInclude Include="src\Ext\Side\Body.h" />
     <ClInclude Include="src\Ext\TechnoType\Body.h" />
