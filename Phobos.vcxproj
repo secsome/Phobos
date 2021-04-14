@@ -101,6 +101,7 @@
     <ClInclude Include="src\Ext\WeaponType\Body.h" />
     <ClInclude Include="src\Misc\CaptureManager.h" />
     <ClInclude Include="src\Misc\ExtendedToolTips.h" />
+    <ClInclude Include="src\Misc\FogOfWar\BasicHeaders.h" />
     <ClInclude Include="src\Misc\FogOfWar\FogOfWar.h" />
     <ClInclude Include="src\Misc\Savegame.h" />
     <ClInclude Include="src\Misc\SavegameDef.h" />
