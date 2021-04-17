@@ -1,4 +1,4 @@
-﻿#include "ExtendedToolTips.h"
+#include "ExtendedToolTips.h"
 
 void ExtToolTip::CreateHelpText(AbstractType itemType, int itemIndex)
 {
@@ -106,11 +106,9 @@ DEFINE_HOOK(6A9316, ExtendedToolTip_HelpText, 6)
 	return 0x6A93DE;
 }
 
-DEFINE_HOOK(478E10, CCToolTip__Draw1, 0)
+void __fastcall
+CCToolTip__Draw1(CCToolTip* pThis, void*, bool drawOnSidebar)
 {
-	GET(CCToolTip*, pThis, ECX);
-	GET_STACK(bool, drawOnSidebar, 4);
-
 	if (!drawOnSidebar || ExtToolTip::isCameo) { // !onSidebar or (onSidebar && ExtToolTip::isCameo)
 		ExtToolTip::isCameo = false;
 		ExtToolTip::slaveDraw = false;
@@ -126,8 +124,8 @@ DEFINE_HOOK(478E10, CCToolTip__Draw1, 0)
 		pThis->drawOnSidebar = drawOnSidebar;
 		pThis->Draw2();
 	}
-	return 0x478E25;
 }
+DEFINE_POINTER_LJMP(0x478E10, CCToolTip__Draw1);
 
 DEFINE_HOOK(478E4A, CCToolTip__Draw2_SetSurface, 6)
 {
