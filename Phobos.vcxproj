@@ -83,6 +83,7 @@
     <ClInclude Include="src\Enum\RadTypeClass.h" />
     <ClInclude Include="src\Enum\_Enumerator.hpp" />
     <ClInclude Include="src\ExtraHeaders\CCToolTip.h" />
+    <ClInclude Include="src\ExtraHeaders\IndexClass.h" />
     <ClInclude Include="src\ExtraHeaders\Matrix3D.h" />
     <ClInclude Include="src\ExtraHeaders\Themes.h" />
     <ClInclude Include="src\Ext\Aircraft\Body.h" />
