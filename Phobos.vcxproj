@@ -44,6 +44,7 @@
     <ClCompile Include="src\Ext\WeaponType\Hook.EBolt.cpp" />
     <ClCompile Include="src\Ext\WeaponType\Hooks.cpp" />
     <ClCompile Include="src\Ext\WeaponType\Hooks.DiskLaserRadius.cpp" />
+    <ClCompile Include="src\Misc\FogOfWar\FoggedObject.cpp" />
     <ClCompile Include="src\Misc\FogOfWar\FogOfWar.cpp" />
     <ClCompile Include="src\Misc\CaptureManager.cpp" />
     <ClCompile Include="src\Misc\FogOfWar\Hooks.cpp" />
@@ -83,7 +84,6 @@
     <ClInclude Include="src\Enum\RadTypeClass.h" />
     <ClInclude Include="src\Enum\_Enumerator.hpp" />
     <ClInclude Include="src\ExtraHeaders\CCToolTip.h" />
-    <ClInclude Include="src\ExtraHeaders\IndexClass.h" />
     <ClInclude Include="src\ExtraHeaders\Matrix3D.h" />
     <ClInclude Include="src\ExtraHeaders\Themes.h" />
     <ClInclude Include="src\Ext\Aircraft\Body.h" />
@@ -103,6 +103,7 @@
     <ClInclude Include="src\Misc\CaptureManager.h" />
     <ClInclude Include="src\Misc\ExtendedToolTips.h" />
     <ClInclude Include="src\Misc\FogOfWar\BasicHeaders.h" />
+    <ClInclude Include="src\Misc\FogOfWar\FoggedObject.h" />
     <ClInclude Include="src\Misc\FogOfWar\FogOfWar.h" />
     <ClInclude Include="src\Misc\Savegame.h" />
     <ClInclude Include="src\Misc\SavegameDef.h" />
