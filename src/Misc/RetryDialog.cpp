@@ -9,6 +9,10 @@ DEFINE_HOOK(686092, RetryDialog_SaveLoad, 7)
 
 	while (true)
 	{
+		// WWMessageBox
+		// Button1
+		// Button3
+		// Button2
 		switch (WWMessageBox::Instance().Process(
 			StringTable::LoadString("TXT_TO_REPLAY"),
 			StringTable::LoadString("TXT_OK"),
