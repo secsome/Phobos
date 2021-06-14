@@ -22,7 +22,7 @@ DEFINE_HOOK(686092, RetryDialog_SaveLoad, 7)
 		case WWMessageBox::Result::Button3: // cancel
 			return 0x6860EE;
 		case WWMessageBox::Result::Button2: // load game
-			if (LoadOptionsClass().LoadDialog() != LoadOptionsMode::Load)
+			if (!LoadOptionsClass().LoadDialog())
 				continue;
 			ThemePlayer::Instance->Stop();
 			break;
