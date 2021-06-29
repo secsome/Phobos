@@ -47,6 +47,10 @@ public:
 		Nullable<int> ChronoRangeMinimum;
 		Nullable<int> ChronoDelay;
 
+		ValueableVector<AnimTypeClass*> OregatherAnims;
+		ValueableVector<int> OregatherTypes;
+		ValueableVector<int> OregatherFramesPerDir;
+
 		ExtData(TechnoTypeClass* OwnerObject) : Extension<TechnoTypeClass>(OwnerObject),
 			HealthBar_Hide(false),
 			UIDescription(),
@@ -74,7 +78,10 @@ public:
 			ChronoDistanceFactor(),
 			ChronoMinimumDelay(),
 			ChronoRangeMinimum(),
-			ChronoDelay()
+			ChronoDelay(),
+			OregatherAnims(),
+			OregatherTypes(),
+			OregatherFramesPerDir()
 		{ }
 
 		virtual ~ExtData() = default;
