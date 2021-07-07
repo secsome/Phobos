@@ -114,6 +114,35 @@ void TechnoTypeExt::ExtData::LoadFromINIFile(CCINIClass* const pINI)
 	INI_EX exArtINI(CCINIClass::INI_Art);
 
 	this->TurretOffset.Read(exArtINI, pThis->ImageFile, "TurretOffset");
+
+	// Burst FLH's.
+	bool parseMultiWeapons = pThis->TurretCount > 0 && pThis->WeaponCount > 0;
+	auto weaponCount = parseMultiWeapons ? pThis->WeaponCount : 2;
+	this->WeaponBurstFLHs.resize(weaponCount);
+	this->EliteWeaponBurstFLHs.resize(weaponCount);
+	char buffer[64];
+
+	for (int i = 0; i < weaponCount; i++)
+	{
+		for (int j = 0; j < INT_MAX; j++)
+		{
+			_snprintf(buffer, 64, "Weapon%d", i + 1);
+			auto baseKey = parseMultiWeapons ? buffer : i > 0 ? "SecondaryFire" : "PrimaryFire";
+
+			_snprintf(buffer, 64, "%sFLH.Burst%d", baseKey, j);
+			CoordStruct FLH = CoordStruct::Empty;
+			CCINIClass::INI_Art->Read3Integers((int*)&FLH, pThis->ImageFile, buffer, (int*)&FLH);
+			WeaponBurstFLHs[i].AddItem(FLH);
+
+			_snprintf(buffer, 64, "Elite%sFLH.Burst%d", baseKey, j);
+			CoordStruct eliteFLH;
+			CCINIClass::INI_Art->Read3Integers((int*)&eliteFLH, pThis->ImageFile, buffer, (int*)&FLH);
+			EliteWeaponBurstFLHs[i].AddItem(eliteFLH);
+
+			if (FLH == CoordStruct::Empty && eliteFLH == CoordStruct::Empty)
+				break;
+		}
+	}
 }
 
 template <typename T>
@@ -147,6 +176,8 @@ void TechnoTypeExt::ExtData::Serialize(T& Stm)
 		.Process(this->ChronoMinimumDelay)
 		.Process(this->ChronoRangeMinimum)
 		.Process(this->ChronoDelay)
+		.Process(this->WeaponBurstFLHs)
+		.Process(this->EliteWeaponBurstFLHs)
 		;
 }
 void TechnoTypeExt::ExtData::LoadFromStream(PhobosStreamReader& Stm)

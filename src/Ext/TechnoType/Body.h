@@ -47,6 +47,9 @@ public:
 		Nullable<int> ChronoRangeMinimum;
 		Nullable<int> ChronoDelay;
 
+		std::vector<DynamicVectorClass<CoordStruct>> WeaponBurstFLHs;
+		std::vector<DynamicVectorClass<CoordStruct>> EliteWeaponBurstFLHs;
+
 		ExtData(TechnoTypeClass* OwnerObject) : Extension<TechnoTypeClass>(OwnerObject),
 			HealthBar_Hide(false),
 			UIDescription(),

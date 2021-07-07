@@ -172,6 +172,29 @@ bool TechnoExt::HasAvailableDock(TechnoClass* pThis)
 	return false;
 }
 
+CoordStruct TechnoExt::GetBurstFLH(TechnoClass* pThis, int weaponIndex)
+{
+	CoordStruct FLH = CoordStruct::Empty;
+
+	if (!pThis)
+		return FLH;
+
+	auto pExt = TechnoTypeExt::ExtMap.Find(pThis->GetTechnoType());
+
+	if (pThis->Veterancy.IsElite())
+	{
+		if (pExt->EliteWeaponBurstFLHs[weaponIndex].Count > pThis->CurrentBurstIndex)
+			FLH = pExt->EliteWeaponBurstFLHs[weaponIndex][pThis->CurrentBurstIndex];
+	}
+	else
+	{
+		if (pExt->WeaponBurstFLHs[weaponIndex].Count > pThis->CurrentBurstIndex)
+			FLH = pExt->WeaponBurstFLHs[weaponIndex][pThis->CurrentBurstIndex];
+	}
+
+	return FLH;
+}
+
 // =============================
 // load / save
 
