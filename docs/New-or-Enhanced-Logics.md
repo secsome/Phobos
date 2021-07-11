@@ -108,7 +108,7 @@ BreakAnim=                     ; animation
 HitAnim=                       ; animation
 
 [SOMETECHNO]                   ; TechnoType
-ShieldType=SOMESHIELDTYPE          ; ShieldType; none by default
+ShieldType=SOMESHIELDTYPE      ; ShieldType; none by default
 
 [SOMEWARHEAD]                  ; WarheadType
 PenetratesShield=false         ; boolean
@@ -139,8 +139,31 @@ BreaksShield=false             ; boolean
   - `PenetratesShield` allows the warhead ignore the shield and always deal full damage to the TechnoType itself. It also allows targeting the TechnoType as if shield isn't existed.
   - `BreaksShield` allows the warhead to always break shields of TechnoTypes, regardless of the amount of strength the shield has remaining or the damage dealt, assuming it affects the shield's armor type. Residual damage, if there is any, still respects `AbsorbOverDamage`.
 
+### Firing offsets for specific Burst shots
+
+- You can now specify separate firing offsets for each of the shots fired by weapon with `Burst` via using `(Elite)PrimaryFire|SecondaryFire|WeaponX|FLH.BurstN` keys, depending on which weapons your TechnoType makes use of. *N* in `BurstN` is zero-based burst shot index, and the values are parsed sequentially until no value for either regular or elite weapon is present or the value is `0,0,0`. If no burst-index specific value is available, value from the base key (f.ex `PrimaryFireFLH`) is used.
+- Burst-index specific firing offsets are absolute firing offsets and the lateral shifting based on burst index that occurs with the base firing offsets is not applied.
+
+In `artmd.ini`:
+```ini
+[SOMETECHNO]                         ; TechnoType
+(Elite)PrimaryFireFLH.BurstN=0,0,0   ; int - forward, lateral, height.
+(Elite)SecondaryFireFLH.BurstN=0,0,0 ; int - forward, lateral, height.
+(Elite)WeaponXFLH.BurstN=0,0,0       ; int - forward, lateral, height.
+```
 
 ## Weapons
+
+### Burst.Delays
+
+- Allows specifying weapon-specific burst shot delays. Takes precedence over the old `BurstDelayX` logic available on VehicleTypes, functions with Infantry & BuildingType weapons (AircraftTypes are not supported due to their weapon firing system being completely different) and allows every shot of `Burst` to have a separate delay instead of only first four shots.
+- Using -1 as delay reverts back to old logic (`BurstDelay0-3` for VehicleTypes if available or random value between 3-5 otherwise) for that shot, and same applies to shots for which a delay value hasn't been defined.
+
+In `rulesmd.ini`:
+```ini
+[SOMEWEAPON]                 ; WeaponType
+Burst.Delays=-1,-1           ; int - burst delays for shots in order from first to last.
+```
 
 ### Strafing aircraft weapon customization
 
@@ -153,7 +176,7 @@ BreaksShield=false             ; boolean
 
 In `rulesmd.ini`:
 ```ini
-[SOMEWEAPON]        ; WeaponType
+[SOMEWEAPON]                 ; WeaponType
 Strafing.Shots=5             ; integer
 Strafing.SimulateBurst=false ; bool
 ```
