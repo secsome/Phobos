@@ -36,7 +36,7 @@ In `FAData.ini`:
 ### TBD
 
 New:
-- TBD
+- Allow to sort all kinds of cameo by the Cameo Priority for any TechnoType/SWType (by Uranusian)
 
 Vanilla fixes:
 - Fixed the bug when after a failed placement the building/defence tab hotkeys won't trigger placement mode again (by Uranusian)
