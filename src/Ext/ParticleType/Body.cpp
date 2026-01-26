@@ -25,7 +25,6 @@ void ParticleTypeExt::ExtData::LoadFromINIFile(CCINIClass* const pINI)
 	{
 		Debug::FatalErrorAndExit(Debug::ExitCode::BadINIUsage,
 			"[%s] has StateAIAdvance=0 in conjunction with StartStateAI value less than EndStateAI.\n", pSection);
-		pThis->StateAIAdvance = 1;
 	}
 }
 

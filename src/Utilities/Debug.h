@@ -24,8 +24,8 @@ public:
 	static void LogAndMessage(const char* pFormat, ...);
 	static void LogWithVArgs(const char* pFormat, va_list args);
 	static void INIParseFailed(const char* section, const char* flag, const char* value, const char* Message = nullptr);
-	static void FatalErrorAndExit(const char* pFormat, ...);
-	static void FatalErrorAndExit(ExitCode nExitCode, const char* pFormat, ...);
+	[[noreturn]] static void FatalErrorAndExit(const char* pFormat, ...);
+	[[noreturn]] static void FatalErrorAndExit(ExitCode nExitCode, const char* pFormat, ...);
 };
 
 class Console
