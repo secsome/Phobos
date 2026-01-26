@@ -382,10 +382,13 @@ void TechnoExt::DrawSelectBox(TechnoClass* pThis, const Point2D* pLocation, cons
 			Point2D start = *pLocation; // Copy to prevent be modified
 			const int color = Drawing::RGB_To_Int(pSelectBox->GroundLineColor.Get(healthPercentage));
 
-			if (pSelectBox->GroundLine_Dashed)
-				pSurface->DrawDashed(&start, &point, color, 0);
-			else if (Line_In_Bounds(&start, &point, &DSurface::ViewBounds))
-				pSurface->DrawLine(&start, &point, color);
+			if (Line_In_Bounds(&start, &point, &DSurface::ViewBounds))
+			{
+				if (pSelectBox->GroundLine_Dashed)
+					pSurface->DrawDashedLine(start, point, color, Surface::DashedLinePatternLong, 0);
+				else
+					pSurface->DrawLine(start, point, color);
+			}
 		}
 	}
 

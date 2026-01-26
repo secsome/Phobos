@@ -4,7 +4,7 @@ DEFINE_HOOK(0x6B9D9C, RGB_PCX_Loader, 0x7)
 {
 	GET(BSurface*, pSurf, EDI);
 
-	return pSurf->BytesPerPixel == 2 ? 0x6B9EE7 : 0;
+	return pSurf->GetBytesPerPixel() == 2 ? 0x6B9EE7 : 0;
 }
 
 DEFINE_HOOK(0x5535D0, LoadProgressMgr_Draw_PCXLoadingScreen, 0x6)
@@ -43,7 +43,7 @@ DEFINE_HOOK(0x5535D0, LoadProgressMgr_Draw_PCXLoadingScreen, 0x6)
 			RectangleStruct pcxBounds = { 0, 0, pcx->Width, pcx->Height };
 			RectangleStruct destClip = { (pSurf->Width - pcx->Width) / 2, (pSurf->Height - pcx->Height) / 2, pcx->Width, pcx->Height };
 
-			pSurf->CopyFrom(&pSurfBounds, &destClip, pcx, &pcxBounds, &pcxBounds, true, true);
+			pSurf->BlitFrom(pSurfBounds, destClip, *pcx, pcxBounds, pcxBounds, true, true);
 		}
 
 		return 0x553603;
@@ -70,7 +70,7 @@ DEFINE_HOOK(0x552FCB, LoadProgressMgr_Draw_PCXLoadingScreen_Campaign, 0x6)
 			RectangleStruct pcxBounds = { 0, 0, pPCX->Width, pPCX->Height };
 			RectangleStruct destClip = { (pSurface->Width - pPCX->Width) / 2, (pSurface->Height - pPCX->Height) / 2, pPCX->Width, pPCX->Height };
 
-			pSurface->CopyFrom(&pSurfBounds, &destClip, pPCX, &pcxBounds, &pcxBounds, true, true);
+			pSurface->BlitFrom(pSurfBounds, destClip, *pPCX, pcxBounds, pcxBounds, true, true);
 		}
 
 		return 0x552FFF;

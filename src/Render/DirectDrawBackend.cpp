@@ -160,9 +160,9 @@ void DirectDrawBackend::CreateSurface(DSurface* pSurface, int iWidth, int iHeigh
 {
 	pSurface->Width = iWidth;
 	pSurface->Height = iHeight;
-	pSurface->LockLevel = 0;
+	pSurface->LockCount = 0;
 	pSurface->BytesPerPixel = 0;
-	pSurface->Buffer = nullptr;
+	pSurface->LockPtr = nullptr;
 	pSurface->IsPrimary = 0;
 	pSurface->IsVideoRam = 0;
 	pSurface->SurfacePtr = 0;
@@ -332,6 +332,6 @@ void DirectDrawBackend::FocusRestore() noexcept
 	if (DSurface::Primary && DSurface::Primary->RestoreCheck())
 	{
 		if (!Game::bSpecialFlag || Unsorted::CurrentFrame > 16)
-			DSurface::Primary->FillRect(&DSurface::WindowBounds, 0);
+			DSurface::Primary->FillRect(DSurface::WindowBounds, 0);
 	}
 }

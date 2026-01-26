@@ -68,7 +68,7 @@ bool SWButtonClass::Draw(bool forced)
 	{
 		RectangleStruct cameoRect = { location.X, location.Y, this->Width, this->Height };
 		const COLORREF tooltipColor = Drawing::RGB_To_Int(Drawing::TooltipColor);
-		pSurface->DrawRect(&cameoRect, tooltipColor);
+		pSurface->DrawRect(cameoRect, tooltipColor);
 	}
 
 	if (pSuper->IsReady && !pCurrent->CanTransactMoney(pSWExt->Money_Amount)

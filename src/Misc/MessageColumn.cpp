@@ -70,7 +70,7 @@ void MessageToggleClass::DrawShape() const
 
 	if (MessageColumnClass::Instance.IsExpanded())
 	{
-		DSurface::Composite->FillRectTrans(&drawRect, &color, opacity);
+		DSurface::Composite->FillRectTrans(drawRect, color, opacity);
 
 		color = ColorStruct { 255, 0, 0 };
 
@@ -85,11 +85,11 @@ void MessageToggleClass::DrawShape() const
 		drawRect.Width = iconSide;
 		drawRect.Height = iconSide;
 
-		DSurface::Composite->FillRect(&drawRect, drawColor);
+		DSurface::Composite->FillRect(drawRect, drawColor);
 	}
 	else
 	{
-		DSurface::Composite->FillRectTrans(&drawRect, &color, opacity);
+		DSurface::Composite->FillRectTrans(drawRect, color, opacity);
 
 		color = MessageColumnClass::Instance.GetColor();
 
@@ -105,15 +105,15 @@ void MessageToggleClass::DrawShape() const
 		drawRect.Width = MessageToggleClass::ButtonSide - (2 * offset);
 		drawRect.Height = interval;
 
-		DSurface::Composite->FillRect(&drawRect, drawColor);
+		DSurface::Composite->FillRect(drawRect, drawColor);
 
 		drawRect.Y += (interval * 2);
 
-		DSurface::Composite->FillRect(&drawRect, drawColor);
+		DSurface::Composite->FillRect(drawRect, drawColor);
 
 		drawRect.Y += (interval * 2);
 
-		DSurface::Composite->FillRect(&drawRect, drawColor);
+		DSurface::Composite->FillRect(drawRect, drawColor);
 	}
 }
 
@@ -178,7 +178,7 @@ void MessageButtonClass::DrawShape() const
 	const bool highLight = can && this->Hovering;
 	const int opacity = highLight ? MessageColumnClass::MediumOpacity : MessageColumnClass::LowOpacity;
 
-	DSurface::Composite->FillRectTrans(&drawRect, &color, opacity);
+	DSurface::Composite->FillRectTrans(drawRect, color, opacity);
 
 	color = can ? MessageColumnClass::Instance.GetColor() : ColorStruct { 0, 0, 0 };
 
@@ -193,7 +193,7 @@ void MessageButtonClass::DrawShape() const
 	drawRect.Width -= (intervalX * 2);
 	drawRect.Height = MessageToggleClass::ButtonIconWidth;
 
-	DSurface::Composite->FillRect(&drawRect, drawColor);
+	DSurface::Composite->FillRect(drawRect, drawColor);
 }
 
 // --------------------------------------------------
@@ -296,7 +296,7 @@ void MessageScrollClass::DrawShape() const
 			auto color = MessageColumnClass::Instance.GetColor();
 			MessageColumnClass::Instance.DecreaseBrightness(color, 3);
 
-			DSurface::Composite->FillRectTrans(&drawRect, &color, Phobos::Config::MessageDisplayInCenter_BoardOpacity);
+			DSurface::Composite->FillRectTrans(drawRect, color, Phobos::Config::MessageDisplayInCenter_BoardOpacity);
 		}
 	}
 	else // Scroll_Bar
@@ -316,7 +316,7 @@ void MessageScrollClass::DrawShape() const
 			const int opacity = this->Hovering && !onThumb
 				? MessageColumnClass::HighOpacity : MessageColumnClass::MediumOpacity;
 
-			DSurface::Composite->FillRectTrans(&drawRect, &color, opacity);
+			DSurface::Composite->FillRectTrans(drawRect, color, opacity);
 
 			color = MessageColumnClass::Instance.GetColor();
 
@@ -329,7 +329,7 @@ void MessageScrollClass::DrawShape() const
 			drawRect.Y += thumbPos;
 			drawRect.Height = thumbHeight;
 
-			DSurface::Composite->FillRect(&drawRect, drawColor);
+			DSurface::Composite->FillRect(drawRect, drawColor);
 		}
 	}
 }
@@ -1109,7 +1109,7 @@ DEFINE_HOOK(0x623A9F, DSurface_sub_623880_DrawBitFontStrings, 0x5)
 	{
 		auto color = MessageColumnClass::Instance.GetColor();
 		MessageColumnClass::Instance.DecreaseBrightness(color, 3);
-		pSurface->FillRectTrans(pRect, &color, Phobos::Config::MessageDisplayInCenter_BoardOpacity);
+		pSurface->FillRectTrans(*pRect, color, Phobos::Config::MessageDisplayInCenter_BoardOpacity);
 	}
 
 	return SkipGameCode;

@@ -430,8 +430,8 @@ DEFINE_HOOK(0x478FDC, CCToolTip_Draw2_FillRect, 0x5)
 			if (isCameo)
 				SidebarClass::Instance.SidebarBackgroundNeedsRedraw = true;
 
-			pThis->FillRectTrans(pRect,
-				pData->ToolTip_Background_Color.GetEx(&RulesExt::Global()->ToolTip_Background_Color),
+			pThis->FillRectTrans(*pRect,
+				pData->ToolTip_Background_Color.Get(RulesExt::Global()->ToolTip_Background_Color),
 				pData->ToolTip_Background_Opacity.Get(RulesExt::Global()->ToolTip_Background_Opacity)
 			);
 
