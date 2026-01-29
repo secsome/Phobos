@@ -1654,20 +1654,21 @@ class XSurfaceFake final : public XSurface
 
 int XSurfaceFake::_GetPixel(Point2D const& point) const
 {
+	auto surface = (Surface*)this;
 	int color = 0;
 
 	Point2D finalPoint = point;
 	if (finalPoint.X > Width || finalPoint.Y > Height)
 		finalPoint = Point2D::Empty;
 
-	void* pointer = ((Surface*)this)->Lock(finalPoint.X, finalPoint.Y);
+	void* pointer = surface->Lock(finalPoint);
 	if (pointer != nullptr)
 	{
-		if (BytesPerPixel == 2)
+		if (surface->GetBytesPerPixel() == 2)
 			color = *static_cast<unsigned short*>(pointer);
 		else
 			color = *static_cast<unsigned char*>(pointer);
-		((Surface*)this)->Unlock();
+		surface->Unlock();
 	}
 	return color;
 }

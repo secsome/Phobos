@@ -19,9 +19,9 @@ void SurfaceExt::BlurRect(const RectangleStruct& rect, float blurSize)
 	if (bound.Width <= 0 || bound.Height <= 0)
 		return;
 
-	const auto line_length = this->GetPitch() / sizeof(WORD);
+	const auto line_length = this->Stride() / sizeof(WORD);
 
-	auto ptr = (WORD*)this->Lock(bound.X, bound.Y);
+	auto ptr = (WORD*)this->Lock(bound.TopLeft());
 	if (!ptr)
 		return;
 

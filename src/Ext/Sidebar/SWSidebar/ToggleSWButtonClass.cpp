@@ -29,7 +29,7 @@ bool ToggleSWButtonClass::Draw(bool forced)
 	if (this->IsHovering)
 	{
 		const COLORREF tooltipColor = Drawing::RGB_To_Int(Drawing::TooltipColor);
-		DSurface::Composite->DrawRect(&destRect, tooltipColor);
+		DSurface::Composite->DrawRect(destRect, tooltipColor);
 	}
 
 	return true;
