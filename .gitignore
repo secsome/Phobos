@@ -27,3 +27,5 @@ out
 
 # Python virtual environment for docs
 .venv/
+
+Phobos.log
