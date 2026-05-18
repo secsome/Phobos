@@ -29,3 +29,5 @@ out
 .venv/
 
 Phobos.log
+
+gamemd.*
