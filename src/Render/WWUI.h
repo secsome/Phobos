@@ -10,4 +10,5 @@ namespace WWUI
 	LRESULT CALLBACK ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK ComboBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK SliderCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK ProgressCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 }

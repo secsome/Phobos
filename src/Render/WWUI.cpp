@@ -446,6 +446,57 @@ namespace
 		pSurface->Unlock();
 	}
 
+	void BlendGradientRect(const RectangleStruct& rect, Surface* pSurface, WORD color, int widthScale)
+	{
+		if (!pSurface || rect.Width <= 0 || rect.Height <= 0)
+			return;
+
+		int fillWidth = static_cast<int>((static_cast<long long>(rect.Width) * widthScale) >> 16);
+		if (fillWidth < 0)
+			return;
+
+		if (!fillWidth)
+			fillWidth = 1;
+
+		auto pPixels = static_cast<WORD*>(pSurface->Lock(0, 0));
+		if (!pPixels)
+			return;
+
+		const int pitch = pSurface->GetPitch() / 2;
+		const int quarterHeight = rect.Height / 4;
+		bool useGradient = true;
+
+		for (int y = 0; y < rect.Height; ++y)
+		{
+			if (y == 3 * quarterHeight)
+				useGradient = true;
+
+			if (y == quarterHeight)
+				useGradient = false;
+
+			auto pLine = &pPixels[(rect.Y + y) * pitch + rect.X];
+			int alphaNumerator = 255;
+
+			for (int x = 0; x < fillWidth; ++x)
+			{
+				if (useGradient)
+				{
+					const int alpha = (alphaNumerator / rect.Width) & 0xFF;
+					*pLine = BlendSurfacePixel(*pLine, color, alpha);
+				}
+				else
+				{
+					*pLine = color;
+				}
+
+				++pLine;
+				alphaNumerator += 255;
+			}
+		}
+
+		pSurface->Unlock();
+	}
+
 	bool DrawAlphaLine(DSurface* pSurface, Point2D start, Point2D end, WORD color, BYTE alpha)
 	{
 		if (!pSurface)
@@ -2066,6 +2117,46 @@ namespace
 		}
 	}
 
+	void EnsureProgressCache(OwnerDrawDialogElement& data, const RectangleStruct& cacheRect, const RectangleStruct& screenRect)
+	{
+		if (data.CacheSurface || !DSurface::Alternate || cacheRect.Width <= 0 || cacheRect.Height <= 0)
+			return;
+
+		data.CacheSurface = GameCreate<BSurface>(cacheRect.Width, cacheRect.Height);
+		if (!data.CacheSurface)
+			return;
+
+		++OwnerDraw::CachedSurfaceCount;
+		CopySurfacePart(data.CacheSurface, cacheRect, DSurface::Alternate, screenRect);
+	}
+
+	void PaintProgress(OwnerDrawDialogElement& data, const RECT& ownerRect)
+	{
+		if (!DSurface::Alternate)
+			return;
+
+		const int width = ownerRect.right - ownerRect.left + 1;
+		const int height = ownerRect.bottom - ownerRect.top + 1;
+		if (width <= 0 || height <= 0)
+			return;
+
+		RectangleStruct cacheRect { 0, 0, width, height };
+		RectangleStruct screenRect { ownerRect.left, ownerRect.top, width, height };
+
+		EnsureProgressCache(data, cacheRect, screenRect);
+
+		if (data.CacheSurface)
+			CopySurfacePart(DSurface::Alternate, screenRect, data.CacheSurface, cacheRect);
+
+		const int rangeSpan = data.ProgressMaxValue() - data.ProgressMinValue();
+		const int widthScale = rangeSpan
+			? static_cast<int>((static_cast<long long>(data.ProgressPosition()) << 16) / rangeSpan)
+			: 0;
+
+		const WORD color = static_cast<WORD>(ConvertRGBToSurfaceColor(RGB(255, 0, 0)));
+		BlendGradientRect(screenRect, DSurface::Alternate, color, widthScale);
+	}
+
 	constexpr int ListBoxScrollBarExtraWidth = 18;
 	constexpr int ListBoxTextEntryInlineBytes = 2;
 
@@ -2619,7 +2710,7 @@ namespace
 			color = static_cast<WORD>(ConvertRGBToSurfaceColor(RGB(192, 0, 0)));
 		}
 
-		OwnerDraw::BlendGradientRect(&rect, DSurface::Alternate, color, (value << 16) / 1000);
+		BlendGradientRect(rect, DSurface::Alternate, color, (value << 16) / 1000);
 	}
 
 	void PaintListBox(HWND hWnd, OwnerDrawDialogElement& data, const RECT& clientRect, const RECT& ownerRect, WNDPROC pOriginalWndProc)
@@ -4461,6 +4552,52 @@ LRESULT CALLBACK WWUI::SliderCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 
 	default:
 		return writeBack();
+	}
+}
+
+LRESULT CALLBACK WWUI::ProgressCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	RECT ownerRect {};
+	OwnerDraw::GetRectangle(hWnd, &ownerRect);
+
+	auto pData = FindOwnerDrawData(hWnd);
+	if (!pData)
+		return 0;
+
+	auto& data = *pData;
+
+	switch (message)
+	{
+	case WW_PROGRESS_SETRANGE:
+		data.ProgressMinValue() = LOWORD(lParam);
+		data.ProgressMaxValue() = HIWORD(lParam);
+		return 0;
+
+	case WW_PROGRESS_SETPOS:
+	{
+		int position = static_cast<int>(wParam);
+		if (position < data.ProgressMinValue())
+			position = data.ProgressMinValue();
+
+		if (position > data.ProgressMaxValue())
+			position = data.ProgressMaxValue();
+
+		data.ProgressPosition() = position;
+		::InvalidateRect(hWnd, nullptr, FALSE);
+		return 0;
+	}
+
+	case WM_PAINT:
+		PaintProgress(data, ownerRect);
+		::ValidateRect(hWnd, nullptr);
+		return 0;
+
+	case WW_INITDIALOG:
+		data.ProgressMaxValue() = 100;
+		return 0;
+
+	default:
+		return 0;
 	}
 }
 
