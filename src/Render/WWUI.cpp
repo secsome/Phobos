@@ -6546,6 +6546,27 @@ LRESULT CALLBACK WWUI::InputCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 	}
 }
 
+LRESULT CALLBACK WWUI::SysListViewCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	const auto pOriginalWndProc = FindWindowProc(OwnerDraw::DialogProcs, hWnd);
+
+	RECT ownerRect {};
+	(void)OwnerDraw::GetRectangle(hWnd, &ownerRect);
+
+	RECT clientRect {};
+	(void)::GetClientRect(hWnd, &clientRect);
+
+	if (message == WM_CTLCOLOREDIT)
+	{
+		const auto hdc = reinterpret_cast<HDC>(wParam);
+		::SetTextColor(hdc, OwnerDraw::PrimaryTextColor);
+		::SetBkMode(hdc, TRANSPARENT);
+		return reinterpret_cast<LRESULT>(::GetStockObject(NULL_BRUSH));
+	}
+
+	return CallSelectedHandler(pOriginalWndProc, hWnd, message, wParam, lParam);
+}
+
 LRESULT CALLBACK WWUI::EditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	auto pData = FindOwnerDrawData(hWnd);

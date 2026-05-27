@@ -120,4 +120,4 @@ Ares 相关文件位于：
 14. `WWUI::CheckboxCtrl` - `BS_AUTOCHECKBOX` 样式 `Button` 的自定义消息处理。
 15. `WWUI::RadioCtrl` - `BS_AUTORADIOBUTTON` 样式 `Button` 的自定义消息处理。
 16. `WWUI::InputCtrl` - `msctls_hotkey32` 的自定义消息处理。
-17. `WWUI::InputCtrlColor` - 剩余某类控件的自定义消息处理，需在分析中确认具体控件类型。
+17. `WWUI::SysListViewCtrl` - `SysListView32` 的自定义消息处理，负责 `LVS_EDITLABELS` 标签编辑的 `WM_CTLCOLOREDIT` 颜色路径。
