@@ -15,4 +15,5 @@ namespace WWUI
 	LRESULT CALLBACK EditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK StaticCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK TabCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK GroupBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 }
