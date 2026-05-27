@@ -80,12 +80,12 @@ static WWUIComboBoxItem* AllocateComboBoxItem(OwnerDrawDialogElement& data, cons
 	if (!pEntry)
 		return nullptr;
 
-	pEntry->Next = data.ComboBoxTextEntries();
+	pEntry->Next = data.AsComboBox().TextEntries();
 	pEntry->ItemData = 0;
 	pEntry->Text = reinterpret_cast<wchar_t*>(reinterpret_cast<char*>(pEntry) + sizeof(WWUIComboBoxItem));
 	pEntry->IsWideText = isWide ? 1 : 0;
 	std::wcscpy(pEntry->Text, pText);
-	data.ComboBoxTextEntries() = pEntry;
+	data.AsComboBox().TextEntries() = pEntry;
 	return pEntry;
 }
 
@@ -95,7 +95,7 @@ static void RemoveComboBoxItem(OwnerDrawDialogElement& data, WWUIComboBoxItem* p
 		return;
 
 	WWUIComboBoxItem* pPrevious = nullptr;
-	for (auto pCurrent = data.ComboBoxTextEntries(); pCurrent; pCurrent = pCurrent->Next)
+	for (auto pCurrent = data.AsComboBox().TextEntries(); pCurrent; pCurrent = pCurrent->Next)
 	{
 		if (pCurrent != pEntry)
 		{
@@ -106,7 +106,7 @@ static void RemoveComboBoxItem(OwnerDrawDialogElement& data, WWUIComboBoxItem* p
 		if (pPrevious)
 			pPrevious->Next = pCurrent->Next;
 		else
-			data.ComboBoxTextEntries() = pCurrent->Next;
+			data.AsComboBox().TextEntries() = pCurrent->Next;
 
 		YRMemory::Deallocate(pCurrent);
 		return;
@@ -168,7 +168,7 @@ static void PaintComboBox(HWND hWnd, OwnerDrawDialogElement& data, const RECT& c
 	if (!DSurface::Alternate)
 		return;
 
-	auto pFont = data.ComboBoxFont() ? data.ComboBoxFont() : BitFont::Instance;
+	auto pFont = data.AsComboBox().Font() ? data.AsComboBox().Font() : BitFont::Instance;
 	const bool dropped = ::SendMessageA(hWnd, CB_GETDROPPEDSTATE, 0, 0) != 0;
 	const int width = ownerRect.right - ownerRect.left;
 	const int height = ownerRect.bottom - ownerRect.top;
@@ -206,7 +206,7 @@ static void PaintComboBox(HWND hWnd, OwnerDrawDialogElement& data, const RECT& c
 
 	const LONG style = ::GetWindowLongA(hWnd, GWL_STYLE);
 	const bool disabled = (style & WS_DISABLED) != 0;
-	const bool alternatePalette = data.ComboBoxUseAlternatePalette();
+	const bool alternatePalette = data.AsComboBox().UseAlternatePalette();
 	const COLORREF borderColor = alternatePalette
 		? (disabled ? OwnerDraw::AltDisabledBorderColor : OwnerDraw::AltBorderColor)
 		: (disabled ? OwnerDraw::DisabledBorderColor : OwnerDraw::DefaultBorderColor);
@@ -234,12 +234,12 @@ static void PaintComboBox(HWND hWnd, OwnerDrawDialogElement& data, const RECT& c
 	}
 
 	COLORREF textColor = ComboBoxTextColor(disabled, alternatePalette);
-	if (data.ComboBoxUseItemColorOverrides()
+	if (data.AsComboBox().UseItemColorOverrides()
 		&& selectedIndex >= 0
 		&& selectedIndex < ComboBoxMaxColorItems
-		&& data.ComboBoxItemColorOverrides()[selectedIndex] >= 0)
+		&& data.AsComboBox().ItemColorOverrides()[selectedIndex] >= 0)
 	{
-		textColor = static_cast<COLORREF>(data.ComboBoxItemColorOverrides()[selectedIndex]);
+		textColor = static_cast<COLORREF>(data.AsComboBox().ItemColorOverrides()[selectedIndex]);
 		auto fillRect = textAreaRect;
 		InsetSurfaceRect(fillRect, 2, 2);
 		DSurface::Alternate->FillRect(&fillRect, ConvertRGBToSurfaceColor(textColor));
@@ -407,7 +407,7 @@ static LRESULT GetComboText(WNDPROC pOriginalWndProc, HWND hWnd, UINT message, W
 static LRESULT SetComboSelection(OwnerDrawDialogElement& data, WNDPROC pOriginalWndProc, HWND hWnd, WPARAM wParam)
 {
 	const int selection = static_cast<int>(wParam);
-	data.ComboBoxCurrentSelection() = selection;
+	data.AsComboBox().CurrentSelection() = selection;
 
 	if (selection == -1)
 	{
@@ -436,7 +436,7 @@ static LRESULT SetComboSelection(OwnerDrawDialogElement& data, WNDPROC pOriginal
 
 static void CloseComboDropDown(OwnerDrawDialogElement& data, HWND hWnd)
 {
-	const HWND dropHwnd = data.ComboBoxDropDownHwnd();
+	const HWND dropHwnd = data.AsComboBox().DropDownHwnd();
 	if (!dropHwnd)
 		return;
 
@@ -446,12 +446,12 @@ static void CloseComboDropDown(OwnerDrawDialogElement& data, HWND hWnd)
 
 	::DestroyWindow(dropHwnd);
 	CleanupDestroyedWindow(dropHwnd);
-	data.ComboBoxDropDownHwnd() = nullptr;
+	data.AsComboBox().DropDownHwnd() = nullptr;
 }
 
 static LRESULT OpenComboDropDown(OwnerDrawDialogElement& data, HWND hWnd, const RECT& clientRect, const RECT& ownerRect)
 {
-	if (data.ComboBoxDropDownHwnd())
+	if (data.AsComboBox().DropDownHwnd())
 		return 1;
 
 	SyncComboDropSelectionColor();
@@ -478,7 +478,7 @@ static LRESULT OpenComboDropDown(OwnerDrawDialogElement& data, HWND hWnd, const 
 	if (itemCount < 1)
 		itemCount = 1;
 
-	const int maxVisibleItems = data.ComboBoxMaxVisibleDropItems();
+	const int maxVisibleItems = data.AsComboBox().MaxVisibleDropItems();
 	if (maxVisibleItems > 0 && itemCount >= maxVisibleItems)
 	{
 		dropHeight = maxVisibleItems * itemHeight + 1;
@@ -519,7 +519,7 @@ static LRESULT OpenComboDropDown(OwnerDrawDialogElement& data, HWND hWnd, const 
 	if (!FindOwnerDrawData(dropHwnd))
 	{
 		OwnerDrawDialogElement dropData;
-		dropData.ComboBoxFont() = BitFont::Instance;
+		dropData.AsComboBox().Font() = BitFont::Instance;
 		dropData.ControlType = WWControlType::Default;
 
 		OwnerDraw::Dialogs[dropHwnd] = dropData;
@@ -532,7 +532,7 @@ static LRESULT OpenComboDropDown(OwnerDrawDialogElement& data, HWND hWnd, const 
 	::SendMessageA(parentHwnd, WW_BRINGTOTOP, reinterpret_cast<WPARAM>(dropHwnd), 1);
 	::SetCapture(dropHwnd);
 	::ShowWindow(dropHwnd, SW_SHOWNORMAL);
-	data.ComboBoxDropDownHwnd() = dropHwnd;
+	data.AsComboBox().DropDownHwnd() = dropHwnd;
 	return 1;
 }
 
@@ -605,8 +605,8 @@ LRESULT CALLBACK WWUI::ComboBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 		if (const auto pDeleteItem = reinterpret_cast<DELETEITEMSTRUCT*>(lParam))
 		{
 			RemoveComboBoxItem(data, reinterpret_cast<WWUIComboBoxItem*>(pDeleteItem->itemData));
-			if (data.ComboBoxCurrentSelection() == static_cast<int>(pDeleteItem->itemID))
-				data.ComboBoxCurrentSelection() = -1;
+			if (data.AsComboBox().CurrentSelection() == static_cast<int>(pDeleteItem->itemID))
+				data.AsComboBox().CurrentSelection() = -1;
 		}
 		return forwardOriginal();
 
@@ -625,7 +625,7 @@ LRESULT CALLBACK WWUI::ComboBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 		break;
 
 	case CB_GETCURSEL:
-		return data.ComboBoxCurrentSelection();
+		return data.AsComboBox().CurrentSelection();
 
 	case CB_GETLBTEXTLEN:
 		return GetComboText(pOriginalWndProc, hWnd, message, wParam, lParam, true);
@@ -648,23 +648,23 @@ LRESULT CALLBACK WWUI::ComboBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 
 	case WW_INITDIALOG:
 	{
-		const int fontHeight = BitFontHeight(data.ComboBoxFont());
-		if (!data.ComboHeightInitialized
+		const int fontHeight = BitFontHeight(data.AsComboBox().Font());
+		if (!data.AsComboBox().HeightInitialized()
 			|| ::SendMessageA(hWnd, CB_GETITEMHEIGHT, 0, 0) != fontHeight + 6)
 		{
 			::SendMessageA(hWnd, CB_SETITEMHEIGHT, static_cast<WPARAM>(-1), fontHeight + 2);
 			::SendMessageA(hWnd, CB_SETITEMHEIGHT, 0, fontHeight + 6);
-			data.ComboHeightInitialized = 1;
+			data.AsComboBox().HeightInitialized() = 1;
 		}
 
-		data.ComboBoxCurrentSelection() = -1;
-		std::memset(data.ComboBoxItemColorOverrides(), 0xFF, sizeof(int) * ComboBoxMaxColorItems);
+		data.AsComboBox().CurrentSelection() = -1;
+		std::memset(data.AsComboBox().ItemColorOverrides(), 0xFF, sizeof(int) * ComboBoxMaxColorItems);
 		return 0;
 	}
 
 	case WW_SETCOLOR:
 		if (wParam <= ComboBoxMaxColorItems)
-			data.ComboBoxItemColorOverrides()[wParam] = static_cast<int>(lParam);
+			data.AsComboBox().ItemColorOverrides()[wParam] = static_cast<int>(lParam);
 		return forwardOriginal();
 
 	case WW_SETTEXTW:
@@ -715,15 +715,15 @@ LRESULT CALLBACK WWUI::ComboBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 		return forwardOriginal();
 
 	case WW_CB_ENABLEITEMCOLORS:
-		data.ComboBoxUseItemColorOverrides() = lParam == 1;
+		data.AsComboBox().UseItemColorOverrides() = lParam == 1;
 		return forwardOriginal();
 
 	case WW_CB_SETMAXVISIBLEDROPITEMS:
-		data.ComboBoxMaxVisibleDropItems() = static_cast<int>(lParam);
+		data.AsComboBox().MaxVisibleDropItems() = static_cast<int>(lParam);
 		return forwardOriginal();
 
 	case WW_QUERYTOOLTIPHIT:
-		if (const HWND dropHwnd = data.ComboBoxDropDownHwnd())
+		if (const HWND dropHwnd = data.AsComboBox().DropDownHwnd())
 		{
 			RECT comboWindowRect {};
 			RECT dropWindowRect {};
@@ -737,7 +737,7 @@ LRESULT CALLBACK WWUI::ComboBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 		return -1;
 
 	case WW_CB_SETALTERNATEPALETTE:
-		data.ComboBoxUseAlternatePalette() = lParam == 1;
+		data.AsComboBox().UseAlternatePalette() = lParam == 1;
 		return forwardOriginal();
 
 	default:

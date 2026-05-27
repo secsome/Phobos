@@ -90,7 +90,7 @@ static void PaintScrollBar(
 	if (pParentData && pParentData->CacheSurface)
 		CopySurfacePart(DSurface::Alternate, destRect, pParentData->CacheSurface, parentSourceRect);
 
-	const bool disabled = data.ScrollBarDisabled();
+	const bool disabled = data.AsScrollBar().Disabled();
 	int borderColor = ConvertRGBToSurfaceColor(disabled ? OwnerDraw::AltBorderColor : OwnerDraw::DefaultBorderColor);
 	if (disabled && OwnerDraw::AltBorderColor == static_cast<COLORREF>(-1))
 		borderColor = -1;
@@ -172,13 +172,13 @@ LRESULT CALLBACK WWUI::ScrollBarCtrl(HWND hWnd, UINT message, WPARAM wParam, LPA
 
 	auto& data = *pData;
 
-	const bool restoreCaptureToNotify = data.ScrollBarRestoreCaptureToNotifyHwnd() != 0;
-	bool isMouseTracking = data.ScrollBarIsMouseTracking() != 0;
-	bool isThumbDragging = data.ScrollBarIsThumbDragging() != 0;
-	int rangeMax = data.ScrollBarRangeMax();
-	int position = data.ScrollBarPosition();
-	bool upButtonPressed = data.ScrollBarUpButtonPressed() != 0;
-	bool downButtonPressed = data.ScrollBarDownButtonPressed() != 0;
+	const bool restoreCaptureToNotify = data.AsScrollBar().RestoreCaptureToNotifyHwnd() != 0;
+	bool isMouseTracking = data.AsScrollBar().IsMouseTracking() != 0;
+	bool isThumbDragging = data.AsScrollBar().IsThumbDragging() != 0;
+	int rangeMax = data.AsScrollBar().RangeMax();
+	int position = data.AsScrollBar().Position();
+	bool upButtonPressed = data.AsScrollBar().UpButtonPressed() != 0;
+	bool downButtonPressed = data.AsScrollBar().DownButtonPressed() != 0;
 
 	if (!rangeMax)
 		rangeMax = 100;
@@ -243,29 +243,29 @@ LRESULT CALLBACK WWUI::ScrollBarCtrl(HWND hWnd, UINT message, WPARAM wParam, LPA
 		::KillTimer(hWnd, 0);
 		::ReleaseCapture();
 
-		if (restoreCaptureToNotify && data.ScrollBarNotifyHwnd())
-			::SetCapture(data.ScrollBarNotifyHwnd());
+		if (restoreCaptureToNotify && data.AsScrollBar().NotifyHwnd())
+			::SetCapture(data.AsScrollBar().NotifyHwnd());
 	};
 
 	auto writeBack = [&]() -> LRESULT
 	{
 		const bool shouldNotify =
-			(position != data.ScrollBarPosition() || rangeMax != data.ScrollBarRangeMax())
-			&& data.ScrollBarNotifyHwnd();
+			(position != data.AsScrollBar().Position() || rangeMax != data.AsScrollBar().RangeMax())
+			&& data.AsScrollBar().NotifyHwnd();
 
-		data.ScrollBarIsMouseTracking() = isMouseTracking;
-		data.ScrollBarIsThumbDragging() = isThumbDragging;
-		data.ScrollBarRangeMax() = rangeMax;
-		data.ScrollBarPosition() = position;
-		data.ScrollBarUpButtonPressed() = upButtonPressed;
-		data.ScrollBarDownButtonPressed() = downButtonPressed;
+		data.AsScrollBar().IsMouseTracking() = isMouseTracking;
+		data.AsScrollBar().IsThumbDragging() = isThumbDragging;
+		data.AsScrollBar().RangeMax() = rangeMax;
+		data.AsScrollBar().Position() = position;
+		data.AsScrollBar().UpButtonPressed() = upButtonPressed;
+		data.AsScrollBar().DownButtonPressed() = downButtonPressed;
 
 		if (shouldNotify)
 		{
 			const WPARAM scrollParam = (static_cast<WPARAM>(position & 0xFFFF) << 16)
 				| static_cast<WPARAM>(notifyCode & 0xFFFF);
 
-			::SendMessageA(data.ScrollBarNotifyHwnd(), WM_VSCROLL, scrollParam, reinterpret_cast<LPARAM>(hWnd));
+			::SendMessageA(data.AsScrollBar().NotifyHwnd(), WM_VSCROLL, scrollParam, reinterpret_cast<LPARAM>(hWnd));
 			::InvalidateRect(hWnd, nullptr, FALSE);
 		}
 
@@ -468,13 +468,13 @@ LRESULT CALLBACK WWUI::ScrollBarCtrl(HWND hWnd, UINT message, WPARAM wParam, LPA
 
 	if (message == WW_DROPDOWN_SETACTIVE)
 	{
-		data.ScrollBarRestoreCaptureToNotifyHwnd() = lParam != 0;
+		data.AsScrollBar().RestoreCaptureToNotifyHwnd() = lParam != 0;
 		return writeBack();
 	}
 
 	if (message == WW_CB_SETALTERNATEPALETTE)
 	{
-		data.ScrollBarDisabled() = lParam == 1;
+		data.AsScrollBar().Disabled() = lParam == 1;
 		return writeBack();
 	}
 

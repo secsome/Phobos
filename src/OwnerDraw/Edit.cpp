@@ -48,16 +48,16 @@ static wchar_t LocalizeCharacter(char character)
 
 static WideWstring* EnsureNewEditText(OwnerDrawDialogElement& data)
 {
-	if (!data.NewEditText())
+	if (!data.AsNewEdit().Text())
 	{
 		auto pMemory = YRMemory::Allocate(sizeof(WideWstring));
 		if (!pMemory)
 			return nullptr;
 
-		data.NewEditText() = new (pMemory) WideWstring();
+		data.AsNewEdit().Text() = new (pMemory) WideWstring();
 	}
 
-	return data.NewEditText();
+	return data.AsNewEdit().Text();
 }
 
 static const wchar_t* NewEditTextBuffer(OwnerDrawDialogElement& data)
@@ -80,7 +80,7 @@ static void SetNewEditText(OwnerDrawDialogElement& data, const wchar_t* pText)
 
 static void TrimNewEditTextToLimit(OwnerDrawDialogElement& data)
 {
-	const int limit = data.NewEditTextLimit();
+	const int limit = data.AsNewEdit().TextLimit();
 	if (limit <= 0)
 		return;
 
@@ -90,8 +90,8 @@ static void TrimNewEditTextToLimit(OwnerDrawDialogElement& data)
 	std::wstring value(NewEditTextBuffer(data), limit);
 	SetNewEditText(data, value.c_str());
 
-	if (data.NewEditCaretIndex() > limit)
-		data.NewEditCaretIndex() = limit;
+	if (data.AsNewEdit().CaretIndex() > limit)
+		data.AsNewEdit().CaretIndex() = limit;
 }
 
 static bool RemoveNewEditTextRange(OwnerDrawDialogElement& data, int index, int length)
@@ -103,7 +103,7 @@ static bool RemoveNewEditTextRange(OwnerDrawDialogElement& data, int index, int 
 	length = std::min(length, static_cast<int>(value.size()) - index);
 	value.erase(static_cast<size_t>(index), static_cast<size_t>(length));
 	SetNewEditText(data, value.c_str());
-	data.NewEditCaretIndex() = std::clamp(data.NewEditCaretIndex(), 0, static_cast<int>(value.size()));
+	data.AsNewEdit().CaretIndex() = std::clamp(data.AsNewEdit().CaretIndex(), 0, static_cast<int>(value.size()));
 	return true;
 }
 
@@ -112,20 +112,20 @@ static bool InsertNewEditCharacter(OwnerDrawDialogElement& data, wchar_t charact
 	if (!character || character <= 0x1F)
 		return false;
 
-	if (data.NewEditAsciiOnly() && character >= 0x100)
+	if (data.AsNewEdit().AsciiOnly() && character >= 0x100)
 		return false;
 
-	if (data.NewEditRejectChars() && std::wcschr(data.NewEditRejectChars(), character))
+	if (data.AsNewEdit().RejectChars() && std::wcschr(data.AsNewEdit().RejectChars(), character))
 		return false;
 
 	std::wstring value(NewEditTextBuffer(data));
-	if (data.NewEditTextLimit() > 0 && static_cast<int>(value.size()) >= data.NewEditTextLimit())
+	if (data.AsNewEdit().TextLimit() > 0 && static_cast<int>(value.size()) >= data.AsNewEdit().TextLimit())
 		return false;
 
-	int caretIndex = std::clamp(data.NewEditCaretIndex(), 0, static_cast<int>(value.size()));
+	int caretIndex = std::clamp(data.AsNewEdit().CaretIndex(), 0, static_cast<int>(value.size()));
 	value.insert(value.begin() + caretIndex, character);
 	SetNewEditText(data, value.c_str());
-	data.NewEditCaretIndex() = caretIndex + 1;
+	data.AsNewEdit().CaretIndex() = caretIndex + 1;
 	return true;
 }
 
@@ -406,15 +406,15 @@ static void PaintNewEdit(HWND hWnd, OwnerDrawDialogElement& data, HWND parentHwn
 		DSurface::Alternate,
 		textRect,
 		NewEditTextBuffer(data),
-		data.NewEditCaretIndex(),
-		data.NewEditFont(),
+		data.AsNewEdit().CaretIndex(),
+		data.AsNewEdit().Font(),
 		Phobos::UI::ColorTextEdit,
-		data.NewEditScrollStart(),
+		data.AsNewEdit().ScrollStart(),
 		data.HasFocus != 0,
-		((data.NewEditStyleFlags() >> 5) & 1) != 0,
+		((data.AsNewEdit().StyleFlags() >> 5) & 1) != 0,
 		false,
 		0,
-		data.NewEditCaretBlinkState());
+		data.AsNewEdit().CaretBlinkState());
 
 	::ValidateRect(hWnd, nullptr);
 }
@@ -593,9 +593,9 @@ static void PaintEdit(HWND hWnd, OwnerDrawDialogElement& data, HWND parentHwnd, 
 		textRect,
 		text.data(),
 		caretIndex,
-		data.EditTextFont(),
+		data.AsEdit().TextFont(),
 		Phobos::UI::ColorText,
-		data.EditTextScrollStart(),
+		data.AsEdit().TextScrollStart(),
 		data.HasFocus != 0,
 		maskText,
 		false,
@@ -618,9 +618,9 @@ LRESULT CALLBACK WWUI::EditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		return forwardOriginal();
 
 	auto& data = *pData;
-	if (::GetFocus() == hWnd && !data.EditFocusRestoreReadyFlag())
+	if (::GetFocus() == hWnd && !data.AsEdit().FocusRestoreReadyFlag())
 	{
-		data.EditFocusRestorePendingFlag() = 1;
+		data.AsEdit().FocusRestorePendingFlag() = 1;
 		::SetFocus(Game::hWnd);
 	}
 
@@ -654,13 +654,13 @@ LRESULT CALLBACK WWUI::EditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
 		if (::GetFocus() == hWnd)
 		{
-			data.EditFocusRestorePendingFlag() = 1;
+			data.AsEdit().FocusRestorePendingFlag() = 1;
 			::SetFocus(Game::hWnd);
 		}
 
 		if (windowStyle & WS_TABSTOP)
 		{
-			data.EditRestoreTabStopFlag() = 1;
+			data.AsEdit().RestoreTabStopFlag() = 1;
 			::SetWindowLongA(hWnd, GWL_STYLE, windowStyle & ~static_cast<LONG>(WS_TABSTOP));
 		}
 
@@ -669,7 +669,7 @@ LRESULT CALLBACK WWUI::EditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
 	case WM_SETFOCUS:
 		::SendMessageA(hWnd, EM_SETSEL, static_cast<WPARAM>(-1), static_cast<LPARAM>(-1));
-		if (!data.EditFocusRestoreReadyFlag())
+		if (!data.AsEdit().FocusRestoreReadyFlag())
 			::PostMessageA(hWnd, WW_EDIT_DEFERFOCUSRESTORE, 0, 0);
 
 		InvalidateNewEdit(hWnd, parentHwnd);
@@ -713,14 +713,14 @@ LRESULT CALLBACK WWUI::EditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		return forwardOriginal();
 
 	case WW_EDIT_RESTOREFOCUS:
-		data.EditFocusRestoreReadyFlag() = 1;
-		if (data.EditFocusRestorePendingFlag())
+		data.AsEdit().FocusRestoreReadyFlag() = 1;
+		if (data.AsEdit().FocusRestorePendingFlag())
 		{
 			::SetFocus(hWnd);
-			data.EditFocusRestorePendingFlag() = 0;
+			data.AsEdit().FocusRestorePendingFlag() = 0;
 		}
 
-		if (data.EditRestoreTabStopFlag())
+		if (data.AsEdit().RestoreTabStopFlag())
 			::SetWindowLongA(hWnd, GWL_STYLE, windowStyle | WS_TABSTOP);
 
 		return 0;
@@ -852,7 +852,7 @@ LRESULT CALLBACK WWUI::NewEditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	}
 
 	case EM_LIMITTEXT:
-		data.NewEditTextLimit() = static_cast<int>(wParam);
+		data.AsNewEdit().TextLimit() = static_cast<int>(wParam);
 		TrimNewEditTextToLimit(data);
 		return forwardOriginal();
 
@@ -868,17 +868,17 @@ LRESULT CALLBACK WWUI::NewEditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	case WW_SETTEXTW:
 	case WW_SETTEXTA:
 		SetNewEditText(data, data.TextBuffer ? data.TextBuffer : L"");
-		data.NewEditCaretIndex() = 0;
-		data.NewEditScrollStart() = 0;
+		data.AsNewEdit().CaretIndex() = 0;
+		data.AsNewEdit().ScrollStart() = 0;
 		TrimNewEditTextToLimit(data);
-		data.NewEditCaretIndex() = NewEditTextLength(data);
+		data.AsNewEdit().CaretIndex() = NewEditTextLength(data);
 		break;
 
 	case WM_KEYDOWN:
 		if (wParam == VK_RETURN)
 		{
 			NotifyNewEditEnterPressed(hWnd, parentHwnd);
-			if (data.NewEditStyleFlags() & 4)
+			if (data.AsNewEdit().StyleFlags() & 4)
 			{
 				if (auto pText = EnsureNewEditText(data))
 					*pText += L"\r\n";
@@ -890,7 +890,7 @@ LRESULT CALLBACK WWUI::NewEditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		break;
 
 	case WM_SETFOCUS:
-		data.NewEditCaretBlinkState() = 0;
+		data.AsNewEdit().CaretBlinkState() = 0;
 		::SetTimer(hWnd, 0, 1000, nullptr);
 		InvalidateNewEdit(hWnd, parentHwnd);
 		return forwardOriginal();
@@ -901,7 +901,7 @@ LRESULT CALLBACK WWUI::NewEditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		return forwardOriginal();
 
 	case WM_TIMER:
-		data.NewEditCaretBlinkState() ^= 1;
+		data.AsNewEdit().CaretBlinkState() ^= 1;
 		::InvalidateRect(hWnd, nullptr, FALSE);
 		return forwardOriginal();
 
@@ -950,34 +950,34 @@ LRESULT CALLBACK WWUI::NewEditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		switch (wParam)
 		{
 		case VK_BACK:
-			if (data.NewEditCaretIndex() > 0)
+			if (data.AsNewEdit().CaretIndex() > 0)
 			{
-				--data.NewEditCaretIndex();
-				textChanged = RemoveNewEditTextRange(data, data.NewEditCaretIndex(), 1);
+				--data.AsNewEdit().CaretIndex();
+				textChanged = RemoveNewEditTextRange(data, data.AsNewEdit().CaretIndex(), 1);
 			}
 			break;
 
 		case VK_DELETE:
-			if (data.NewEditCaretIndex() < NewEditTextLength(data))
-				textChanged = RemoveNewEditTextRange(data, data.NewEditCaretIndex(), 1);
+			if (data.AsNewEdit().CaretIndex() < NewEditTextLength(data))
+				textChanged = RemoveNewEditTextRange(data, data.AsNewEdit().CaretIndex(), 1);
 			break;
 
 		case VK_END:
-			data.NewEditCaretIndex() = NewEditTextLength(data);
+			data.AsNewEdit().CaretIndex() = NewEditTextLength(data);
 			return 0;
 
 		case VK_HOME:
-			data.NewEditCaretIndex() = 0;
+			data.AsNewEdit().CaretIndex() = 0;
 			return 0;
 
 		case VK_LEFT:
-			if (data.NewEditCaretIndex() > 0)
-				--data.NewEditCaretIndex();
+			if (data.AsNewEdit().CaretIndex() > 0)
+				--data.AsNewEdit().CaretIndex();
 			return 0;
 
 		case VK_RIGHT:
-			if (data.NewEditCaretIndex() < NewEditTextLength(data))
-				++data.NewEditCaretIndex();
+			if (data.AsNewEdit().CaretIndex() < NewEditTextLength(data))
+				++data.AsNewEdit().CaretIndex();
 			return 0;
 
 		default:

@@ -198,7 +198,7 @@ static void PaintSlider(
 		};
 
 		const COLORREF textColor = disabled ? Phobos::UI::ColorDisabledSlider : Phobos::UI::ColorTextSlider;
-		OwnerDraw::DrawWideText(DSurface::Alternate, text, &textRect, data.SliderFont(), textColor, 5, 12, 0, 0, 0);
+		OwnerDraw::DrawWideText(DSurface::Alternate, text, &textRect, data.AsSlider().Font(), textColor, 5, 12, 0, 0, 0);
 	}
 }
 
@@ -217,14 +217,14 @@ LRESULT CALLBACK WWUI::SliderCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 	auto& data = *pData;
 
 	int playClickSound = 1;
-	int isMouseTracking = data.SliderIsMouseTracking();
-	int isThumbDragging = data.SliderIsThumbDragging();
-	int rangeSpan = data.SliderRangeSpan();
-	int positionOffset = data.SliderPositionOffset();
-	int rangeMin = data.SliderRangeMin();
-	int thumbOffsetPixels = data.SliderThumbOffsetPixels();
-	int stepValue = data.SliderStepValue();
-	int showValueLabel = data.SliderShowValueLabel();
+	int isMouseTracking = data.AsSlider().IsMouseTracking();
+	int isThumbDragging = data.AsSlider().IsThumbDragging();
+	int rangeSpan = data.AsSlider().RangeSpan();
+	int positionOffset = data.AsSlider().PositionOffset();
+	int rangeMin = data.AsSlider().RangeMin();
+	int thumbOffsetPixels = data.AsSlider().ThumbOffsetPixels();
+	int stepValue = data.AsSlider().StepValue();
+	int showValueLabel = data.AsSlider().ShowValueLabel();
 
 	int valueLabelWidth = showValueLabel ? SliderValueLabelWidth : 0;
 	const int trackTravel = SliderTrackTravel(clientRect, valueLabelWidth);
@@ -241,12 +241,12 @@ LRESULT CALLBACK WWUI::SliderCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 		positionOffset = static_cast<int>(CallSelectedHandler(pOriginalWndProc, hWnd, WW_SLIDER_GETPOS, 0, 0)) - rangeMin;
 		thumbOffsetPixels = SliderThumbOffsetFromPosition(positionOffset, trackTravel, rangeSpan);
 
-		data.SliderThumbOffsetPixels() = thumbOffsetPixels;
-		data.SliderRangeSpan() = rangeSpan;
-		data.SliderPositionOffset() = positionOffset;
-		data.SliderRangeMin() = rangeMin;
-		data.SliderStepValue() = stepValue;
-		data.SliderShowValueLabel() = showValueLabel;
+		data.AsSlider().ThumbOffsetPixels() = thumbOffsetPixels;
+		data.AsSlider().RangeSpan() = rangeSpan;
+		data.AsSlider().PositionOffset() = positionOffset;
+		data.AsSlider().RangeMin() = rangeMin;
+		data.AsSlider().StepValue() = stepValue;
+		data.AsSlider().ShowValueLabel() = showValueLabel;
 	}
 
 	if (!stepValue)
@@ -286,25 +286,25 @@ LRESULT CALLBACK WWUI::SliderCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 	auto writeBack = [&]() -> LRESULT
 	{
 		const bool valueChanged =
-			positionOffset != data.SliderPositionOffset()
-			|| rangeSpan != data.SliderRangeSpan()
-			|| rangeMin != data.SliderRangeMin();
+			positionOffset != data.AsSlider().PositionOffset()
+			|| rangeSpan != data.AsSlider().RangeSpan()
+			|| rangeMin != data.AsSlider().RangeMin();
 
-		data.SliderIsMouseTracking() = isMouseTracking;
-		data.SliderIsThumbDragging() = isThumbDragging;
-		data.SliderThumbOffsetPixels() = thumbOffsetPixels;
-		data.SliderRangeSpan() = rangeSpan;
-		data.SliderPositionOffset() = positionOffset;
-		data.SliderRangeMin() = rangeMin;
-		data.SliderStepValue() = stepValue;
-		data.SliderShowValueLabel() = showValueLabel;
+		data.AsSlider().IsMouseTracking() = isMouseTracking;
+		data.AsSlider().IsThumbDragging() = isThumbDragging;
+		data.AsSlider().ThumbOffsetPixels() = thumbOffsetPixels;
+		data.AsSlider().RangeSpan() = rangeSpan;
+		data.AsSlider().PositionOffset() = positionOffset;
+		data.AsSlider().RangeMin() = rangeMin;
+		data.AsSlider().StepValue() = stepValue;
+		data.AsSlider().ShowValueLabel() = showValueLabel;
 
 		if (valueChanged)
 		{
 			::InvalidateRect(hWnd, nullptr, FALSE);
 			::SendMessageA(::GetParent(hWnd), WM_HSCROLL, MAKELONG(SB_THUMBTRACK, positionOffset + rangeMin), reinterpret_cast<LPARAM>(hWnd));
 
-			if (playClickSound == 1 && !data.SliderSuppressClickSound() && RulesClass::Instance)
+			if (playClickSound == 1 && !data.AsSlider().SuppressClickSound() && RulesClass::Instance)
 				VocClass::PlayGlobal(RulesClass::Instance->GenericClick, 0x2000, 1.0f);
 		}
 
@@ -425,7 +425,7 @@ LRESULT CALLBACK WWUI::SliderCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 		return writeBack();
 
 	case WW_SLIDER_SUPPRESSCLICK:
-		data.SliderSuppressClickSound() = wParam == 0;
+		data.AsSlider().SuppressClickSound() = wParam == 0;
 		return writeBack();
 
 	default:

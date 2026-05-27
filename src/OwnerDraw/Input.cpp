@@ -138,7 +138,7 @@ static LRESULT PaintInputCtrl(HWND hWnd, OwnerDrawDialogElement& data)
 			ownerRect.bottom - 4
 		};
 
-		DrawWideTextBasic(DSurface::Alternate, keyText, textRect, data.InputFont(), OwnerDraw::PrimaryTextColor);
+		DrawWideTextBasic(DSurface::Alternate, keyText, textRect, data.AsInput().Font(), OwnerDraw::PrimaryTextColor);
 	}
 
 	::ValidateRect(hWnd, nullptr);

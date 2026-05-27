@@ -31,9 +31,9 @@ static void PaintProgress(OwnerDrawDialogElement& data, const RECT& ownerRect)
 	if (data.CacheSurface)
 		CopySurfacePart(DSurface::Alternate, screenRect, data.CacheSurface, cacheRect);
 
-	const int rangeSpan = data.ProgressMaxValue() - data.ProgressMinValue();
+	const int rangeSpan = data.AsProgress().MaxValue() - data.AsProgress().MinValue();
 	const int widthScale = rangeSpan
-		? static_cast<int>((static_cast<long long>(data.ProgressPosition()) << 16) / rangeSpan)
+		? static_cast<int>((static_cast<long long>(data.AsProgress().Position()) << 16) / rangeSpan)
 		: 0;
 
 	const WORD color = static_cast<WORD>(ConvertRGBToSurfaceColor(RGB(255, 0, 0)));
@@ -54,20 +54,20 @@ LRESULT CALLBACK WWUI::ProgressCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 	switch (message)
 	{
 	case WW_PROGRESS_SETRANGE:
-		data.ProgressMinValue() = LOWORD(lParam);
-		data.ProgressMaxValue() = HIWORD(lParam);
+		data.AsProgress().MinValue() = LOWORD(lParam);
+		data.AsProgress().MaxValue() = HIWORD(lParam);
 		return 0;
 
 	case WW_PROGRESS_SETPOS:
 	{
 		int position = static_cast<int>(wParam);
-		if (position < data.ProgressMinValue())
-			position = data.ProgressMinValue();
+		if (position < data.AsProgress().MinValue())
+			position = data.AsProgress().MinValue();
 
-		if (position > data.ProgressMaxValue())
-			position = data.ProgressMaxValue();
+		if (position > data.AsProgress().MaxValue())
+			position = data.AsProgress().MaxValue();
 
-		data.ProgressPosition() = position;
+		data.AsProgress().Position() = position;
 		::InvalidateRect(hWnd, nullptr, FALSE);
 		return 0;
 	}
@@ -78,7 +78,7 @@ LRESULT CALLBACK WWUI::ProgressCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 		return 0;
 
 	case WW_INITDIALOG:
-		data.ProgressMaxValue() = 100;
+		data.AsProgress().MaxValue() = 100;
 		return 0;
 
 	default:

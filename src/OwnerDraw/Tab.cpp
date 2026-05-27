@@ -156,7 +156,7 @@ static void DrawTabItemText(
 		DSurface::Alternate,
 		wideTitle,
 		&textRect,
-		data.TabFont(),
+		data.AsTab().Font(),
 		selected ? Phobos::UI::ColorText : OwnerDraw::SelectedTabTextColor,
 		5,
 		12,

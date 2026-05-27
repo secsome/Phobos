@@ -1100,7 +1100,7 @@ static bool HandleElementTextMessage(
 		return true;
 
 	case WW_SETUNKNOWNPROP50:
-		data.LParam3 = lParam;
+		data.AsNewEdit().RejectChars() = reinterpret_cast<wchar_t*>(lParam);
 		return true;
 
 	case WW_SETTEXTA:
@@ -1108,18 +1108,18 @@ static bool HandleElementTextMessage(
 		return true;
 
 	case WW_SETUNKNOWNPROP30:
-		result = data.Erase2;
-		data.Erase2 = wParam;
+		result = data.AsNewEdit().AsciiOnly();
+		data.AsNewEdit().AsciiOnly() = static_cast<int>(wParam);
 		callSelectedHandler = false;
 		return true;
 
 	case WW_SETTEXTW:
 	{
 		const bool changed = SetElementTextW(data, reinterpret_cast<const wchar_t*>(lParam));
-		if (changed && data.DrawMode == 1 && data.AnimationActive)
+		if (changed && data.AsStatic().DrawMode() == WWUIStaticDrawMode::TypewriterText && data.AsStatic().AnimationRunning())
 		{
 			::KillTimer(hWnd, 0);
-			data.AnimationActive = false;
+			data.AsStatic().AnimationRunning() = false;
 			::SendMessageA(hWnd, WW_STATIC_REVEALTEXTS, 0, 0);
 		}
 		return true;
@@ -1479,7 +1479,7 @@ LRESULT CALLBACK WWUI::OwnerDrawWindowProc(HWND hWnd, UINT message, WPARAM wPara
 	switch (message)
 	{
 	case WW_GETHWND:
-		return complete(pData && pData->Hwnd_00C ? 1 : 0);
+		return complete(pData && pData->LinkedHwnd() ? 1 : 0);
 
 	case WW_GETGDIPROPS:
 		if (pData)
@@ -1511,7 +1511,7 @@ LRESULT CALLBACK WWUI::OwnerDrawWindowProc(HWND hWnd, UINT message, WPARAM wPara
 		if (pData)
 		{
 			const auto previous = pData->NeedsControlImage;
-			const HWND linkedHwnd = pData->Hwnd_00C;
+			const HWND linkedHwnd = pData->LinkedHwnd();
 			pData->NeedsControlImage = lParam;
 
 			if (linkedHwnd)
@@ -1594,15 +1594,15 @@ LRESULT CALLBACK WWUI::OwnerDrawWindowProc(HWND hWnd, UINT message, WPARAM wPara
 			return complete(result);
 
 		case WW_SETUNKNOWNPROP24:
-			result = pData->Erase1;
-			pData->Erase1 = lParam;
+			result = pData->UnknownProp24();
+			pData->UnknownProp24() = lParam;
 			return complete(result);
 
 		default:
 			break;
 		}
 
-		if (pData->Erase1 && (message == WM_TIMER || (message >= WM_MOUSEFIRST && message <= WM_MBUTTONDBLCLK)))
+		if (pData->UnknownProp24() && (message == WM_TIMER || (message >= WM_MOUSEFIRST && message <= WM_MBUTTONDBLCLK)))
 		{
 			RECT rect {};
 			::GetWindowRect(hWnd, &rect);

@@ -103,7 +103,7 @@ static bool DrawOwnerDrawButtonShape(
 		frame = 2;
 		if (drawItemState & 1)
 			frame = 4;
-		else if (data.OwnerDrawButtonAlternateFrame())
+		else if (data.AsButton().AlternateFrame())
 			frame = 3;
 		break;
 
@@ -112,7 +112,7 @@ static bool DrawOwnerDrawButtonShape(
 		pShape = OwnerDraw::SideButtonShape;
 		if (drawItemState & 1)
 			frame = 1;
-		else if (data.OwnerDrawButtonAlternateFrame())
+		else if (data.AsButton().AlternateFrame())
 			frame = 2;
 		break;
 
@@ -121,7 +121,7 @@ static bool DrawOwnerDrawButtonShape(
 		pShape = OwnerDraw::CloseButtonShape;
 		if (drawItemState & 1)
 			frame = 1;
-		else if (data.OwnerDrawButtonAlternateFrame())
+		else if (data.AsButton().AlternateFrame())
 			frame = 2;
 		break;
 
@@ -289,7 +289,7 @@ static void DrawOwnerDrawButtonText(
 		DSurface::Alternate,
 		data.TextBuffer,
 		&textRect,
-		data.OwnerDrawButtonFont(),
+		data.AsButton().Font(),
 		textColor,
 		OwnerDrawButtonTextStyle,
 		OwnerDrawButtonTextAlign,
@@ -321,20 +321,21 @@ static LRESULT PaintOwnerDrawButton(HWND hWnd, OwnerDrawDialogElement& data, LON
 		EnsureOwnerDrawButtonCache(data, clientRect, ownerRect);
 
 		COLORREF textColor = Phobos::UI::ColorTextButton;
+		const int drawItemState = data.AsButton().DrawItemState();
 		if (data.LayoutBand)
 		{
-			DrawOwnerDrawButtonShape(data, controlRect, data.DrawItemState, windowStyle, textColor);
+			DrawOwnerDrawButtonShape(data, controlRect, drawItemState, windowStyle, textColor);
 		}
 		else if (data.ControlImage)
 		{
-			DrawOwnerDrawButtonImage(data, controlRect, data.DrawItemState);
+			DrawOwnerDrawButtonImage(data, controlRect, drawItemState);
 		}
 		else
 		{
-			DrawOwnerDrawButtonSlices(hWnd, data, clientRect, ownerRect, drawRect, data.DrawItemState, windowStyle);
+			DrawOwnerDrawButtonSlices(hWnd, data, clientRect, ownerRect, drawRect, drawItemState, windowStyle);
 		}
 
-		DrawOwnerDrawButtonText(data, drawRect, data.DrawItemState, textColor);
+		DrawOwnerDrawButtonText(data, drawRect, drawItemState, textColor);
 
 		if (!data.LayoutBand && (windowStyle & WS_DISABLED))
 			BlendFillRect(controlRect, DSurface::Alternate, 0, OwnerDrawButtonDisabledOverlayAlpha);
@@ -351,14 +352,14 @@ constexpr int CheckboxTextAlign = 12;
 
 static const char* SelectCheckboxArtName(OwnerDrawDialogElement& data)
 {
-	const bool checked = data.CheckboxCheckState() == BST_CHECKED;
+	const bool checked = data.AsCheckbox().CheckState() == BST_CHECKED;
 
-	if (data.CheckboxUseExtendedArt())
+	if (data.AsCheckbox().UseExtendedArt())
 	{
 		if (checked)
-			return data.CheckboxArtVariant() ? "cce_i.pcx" : "cce_il.pcx";
+			return data.AsCheckbox().ArtVariant() ? "cce_i.pcx" : "cce_il.pcx";
 
-		return data.CheckboxArtVariant() ? "cce_ir.pcx" : "cue_i.pcx";
+		return data.AsCheckbox().ArtVariant() ? "cce_ir.pcx" : "cue_i.pcx";
 	}
 
 	return checked ? "cce_i.pcx" : "cue_i.pcx";
@@ -407,7 +408,7 @@ static LRESULT PaintCheckboxCtrl(HWND hWnd, OwnerDrawDialogElement& data, LONG w
 			DSurface::Alternate,
 			data.TextBuffer,
 			&textRect,
-			data.CheckboxFont(),
+			data.AsCheckbox().Font(),
 			textColor,
 			CheckboxTextStyle,
 			CheckboxTextAlign,
@@ -578,7 +579,7 @@ static void DrawRadioSlices(
 			DSurface::Alternate,
 			data.TextBuffer,
 			&textRect,
-			data.RadioFont(),
+			data.AsRadio().Font(),
 			Phobos::UI::ColorTextRadio,
 			RadioTextStyle,
 			RadioTextAlign,
@@ -607,7 +608,7 @@ static LRESULT PaintRadioCtrl(HWND hWnd, OwnerDrawDialogElement& data, LONG wind
 
 	EnsureRadioCache(data, clientRect, ownerRect);
 
-	const int selected = data.RadioCheckState() & 1;
+	const int selected = data.AsRadio().CheckState() & 1;
 	if (data.ControlImage)
 	{
 		DrawRadioImage(data, controlRect, selected);
@@ -649,7 +650,7 @@ LRESULT CALLBACK WWUI::OwnerDrawCtrl(HWND hWnd, UINT message, WPARAM wParam, LPA
 		return PaintOwnerDrawButton(hWnd, data, ::GetWindowLongA(hWnd, GWL_STYLE));
 
 	case WM_TIMER:
-		data.OwnerDrawButtonAlternateFrame() = !data.OwnerDrawButtonAlternateFrame();
+		data.AsButton().AlternateFrame() = !data.AsButton().AlternateFrame();
 		::InvalidateRect(hWnd, nullptr, TRUE);
 		return forwardOriginal();
 
@@ -664,16 +665,16 @@ LRESULT CALLBACK WWUI::OwnerDrawCtrl(HWND hWnd, UINT message, WPARAM wParam, LPA
 	case WW_BUTTON_SETANIMATED:
 		if (lParam == 1)
 		{
-			if (!data.OwnerDrawButtonTimerActive())
+			if (!data.AsButton().TimerActive())
 			{
-				data.OwnerDrawButtonTimerActive() = true;
+				data.AsButton().TimerActive() = true;
 				::SetTimer(hWnd, OwnerDrawButtonTimerId, OwnerDrawButtonTimerInterval, nullptr);
 			}
 		}
-		else if (data.OwnerDrawButtonTimerActive())
+		else if (data.AsButton().TimerActive())
 		{
-			data.OwnerDrawButtonTimerActive() = false;
-			data.OwnerDrawButtonAlternateFrame() = false;
+			data.AsButton().TimerActive() = false;
+			data.AsButton().AlternateFrame() = false;
 			::KillTimer(hWnd, OwnerDrawButtonTimerId);
 			::InvalidateRect(hWnd, nullptr, TRUE);
 		}
@@ -701,10 +702,10 @@ LRESULT CALLBACK WWUI::CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 	switch (message)
 	{
 	case BM_GETCHECK:
-		return data.CheckboxCheckState();
+		return data.AsCheckbox().CheckState();
 
 	case BM_SETCHECK:
-		data.CheckboxCheckState() = static_cast<int>(wParam);
+		data.AsCheckbox().CheckState() = static_cast<int>(wParam);
 		::InvalidateRect(hWnd, nullptr, FALSE);
 		return 0;
 
@@ -714,7 +715,7 @@ LRESULT CALLBACK WWUI::CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 		return forwardOriginal();
 
 	case WM_PAINT:
-		if (!data.CheckboxUseNativePaint())
+		if (!data.AsCheckbox().UseNativePaint())
 			return PaintCheckboxCtrl(hWnd, data, ::GetWindowLongA(hWnd, GWL_STYLE));
 
 		return forwardOriginal();
@@ -724,21 +725,21 @@ LRESULT CALLBACK WWUI::CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 		if (!IsInsideCheckboxArt(lParam))
 			return 0;
 
-		data.CheckboxCheckState() = data.CheckboxCheckState() == BST_CHECKED ? BST_UNCHECKED : BST_CHECKED;
+		data.AsCheckbox().CheckState() = data.AsCheckbox().CheckState() == BST_CHECKED ? BST_UNCHECKED : BST_CHECKED;
 		::InvalidateRect(hWnd, nullptr, FALSE);
-		NotifyCheckboxClicked(hWnd, data.CheckboxCheckState());
+		NotifyCheckboxClicked(hWnd, data.AsCheckbox().CheckState());
 		return 0;
 
 	case WW_INITDIALOG:
-		data.CheckboxCheckState() = static_cast<int>(
+		data.AsCheckbox().CheckState() = static_cast<int>(
 			CallSelectedHandler(pOriginalWndProc, hWnd, BM_GETCHECK, 0, 0));
 		return forwardOriginal();
 
 	case WW_CHECKBOX_ENABLEEXTENDEDART:
 	{
 		const bool enabled = lParam != 0;
-		const bool oldArtVariant = data.CheckboxArtVariant();
-		data.CheckboxUseExtendedArt() = enabled;
+		const bool oldArtVariant = data.AsCheckbox().ArtVariant();
+		data.AsCheckbox().UseExtendedArt() = enabled;
 		if (oldArtVariant != enabled)
 			::InvalidateRect(hWnd, nullptr, FALSE);
 
@@ -748,8 +749,8 @@ LRESULT CALLBACK WWUI::CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 	case WW_CHECKBOX_SETARTVARIANT:
 	{
 		const bool variant = lParam != 0;
-		const bool oldArtVariant = data.CheckboxArtVariant();
-		data.CheckboxArtVariant() = variant;
+		const bool oldArtVariant = data.AsCheckbox().ArtVariant();
+		data.AsCheckbox().ArtVariant() = variant;
 		if (oldArtVariant != variant)
 			::InvalidateRect(hWnd, nullptr, FALSE);
 
@@ -757,7 +758,7 @@ LRESULT CALLBACK WWUI::CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 	}
 
 	case WW_CHECKBOX_GETARTVARIANT:
-		return data.CheckboxArtVariant();
+		return data.AsCheckbox().ArtVariant();
 
 	default:
 		return forwardOriginal();
@@ -780,10 +781,10 @@ LRESULT CALLBACK WWUI::RadioCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 	switch (message)
 	{
 	case BM_GETCHECK:
-		return data.RadioCheckState();
+		return data.AsRadio().CheckState();
 
 	case BM_SETCHECK:
-		data.RadioCheckState() = static_cast<int>(wParam);
+		data.AsRadio().CheckState() = static_cast<int>(wParam);
 		::InvalidateRect(hWnd, nullptr, TRUE);
 		return forwardOriginal();
 
@@ -792,10 +793,10 @@ LRESULT CALLBACK WWUI::RadioCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
 	case WM_LBUTTONDOWN:
 	case WM_LBUTTONDBLCLK:
-		if (data.RadioCheckState())
+		if (data.AsRadio().CheckState())
 			return 0;
 
-		data.RadioCheckState() = BST_CHECKED;
+		data.AsRadio().CheckState() = BST_CHECKED;
 		::InvalidateRect(hWnd, nullptr, TRUE);
 
 		if (RulesClass::Instance)
@@ -812,7 +813,7 @@ LRESULT CALLBACK WWUI::RadioCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		}
 
 	case WW_INITDIALOG:
-		data.RadioCheckState() = static_cast<int>(
+		data.AsRadio().CheckState() = static_cast<int>(
 			CallSelectedHandler(pOriginalWndProc, hWnd, BM_GETCHECK, 0, 0));
 		return forwardOriginal();
 

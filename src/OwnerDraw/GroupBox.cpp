@@ -88,7 +88,7 @@ static LRESULT PaintGroupBoxCtrl(HWND hWnd, OwnerDrawDialogElement& data)
 	OwnerDraw::GetRectangle(hWnd, &groupRect);
 
 	const int groupWidth = groupRect.right - groupRect.left;
-	const auto pFont = data.GroupBoxFont() ? data.GroupBoxFont() : BitFont::Instance;
+	const auto pFont = data.AsGroupBox().Font() ? data.AsGroupBox().Font() : BitFont::Instance;
 	const int topY = groupRect.top + BitFontHeight(pFont) / 2;
 	const int captionWidth = MeasureGroupBoxCaption(pFont, pCaption, groupWidth);
 

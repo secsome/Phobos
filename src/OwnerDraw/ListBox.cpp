@@ -349,12 +349,12 @@ static WWUIListBoxTextEntry* AllocateListBoxTextEntry(OwnerDrawDialogElement& da
 	if (!pEntry)
 		return nullptr;
 
-	pEntry->Next = data.ListBoxTextEntries();
+	pEntry->Next = data.AsListBox().TextEntries();
 	pEntry->ItemData = 0;
 	pEntry->Text = reinterpret_cast<wchar_t*>(reinterpret_cast<char*>(pEntry) + sizeof(WWUIListBoxTextEntry));
 	pEntry->IsWide = isWide ? 1 : 0;
 	std::wcscpy(pEntry->Text, pText);
-	data.ListBoxTextEntries() = pEntry;
+	data.AsListBox().TextEntries() = pEntry;
 	return pEntry;
 }
 
@@ -364,7 +364,7 @@ static void RemoveListBoxTextEntry(OwnerDrawDialogElement& data, WWUIListBoxText
 		return;
 
 	WWUIListBoxTextEntry* pPrevious = nullptr;
-	for (auto pCurrent = data.ListBoxTextEntries(); pCurrent; pCurrent = pCurrent->Next)
+	for (auto pCurrent = data.AsListBox().TextEntries(); pCurrent; pCurrent = pCurrent->Next)
 	{
 		if (pCurrent != pEntry)
 		{
@@ -375,7 +375,7 @@ static void RemoveListBoxTextEntry(OwnerDrawDialogElement& data, WWUIListBoxText
 		if (pPrevious)
 			pPrevious->Next = pCurrent->Next;
 		else
-			data.ListBoxTextEntries() = pCurrent->Next;
+			data.AsListBox().TextEntries() = pCurrent->Next;
 
 		YRMemory::Deallocate(pCurrent);
 		return;
@@ -384,7 +384,7 @@ static void RemoveListBoxTextEntry(OwnerDrawDialogElement& data, WWUIListBoxText
 
 static void ClearListBoxTextEntries(OwnerDrawDialogElement& data)
 {
-	auto pEntry = data.ListBoxTextEntries();
+	auto pEntry = data.AsListBox().TextEntries();
 	while (pEntry)
 	{
 		auto pNext = pEntry->Next;
@@ -392,7 +392,7 @@ static void ClearListBoxTextEntries(OwnerDrawDialogElement& data)
 		pEntry = pNext;
 	}
 
-	data.ListBoxTextEntries() = nullptr;
+	data.AsListBox().TextEntries() = nullptr;
 }
 
 static WWUIListBoxTextEntry* GetListBoxTextEntry(WNDPROC pOriginalWndProc, HWND hWnd, int index)
@@ -406,10 +406,10 @@ static WWUIListBoxTextEntry* GetListBoxTextEntry(WNDPROC pOriginalWndProc, HWND 
 
 static void RemoveListBoxRow(OwnerDrawDialogElement& data, int index)
 {
-	RemoveIntArrayItem(data.ListBoxItemData(), index);
-	RemoveIntArrayItem(data.ListBoxSelectionStates(), index);
+	RemoveIntArrayItem(data.AsListBox().ItemData(), index);
+	RemoveIntArrayItem(data.AsListBox().SelectionStates(), index);
 
-	if (auto pColumns = data.ListBoxColumns())
+	if (auto pColumns = data.AsListBox().Columns())
 	{
 		for (int i = 0; i < pColumns->Count; ++i)
 		{
@@ -431,10 +431,10 @@ static void RemoveListBoxRow(OwnerDrawDialogElement& data, int index)
 
 static void InsertListBoxRow(OwnerDrawDialogElement& data, int index)
 {
-	InsertIntArrayItem(data.ListBoxItemData(), index, -1);
-	InsertIntArrayItem(data.ListBoxSelectionStates(), index, 0);
+	InsertIntArrayItem(data.AsListBox().ItemData(), index, -1);
+	InsertIntArrayItem(data.AsListBox().SelectionStates(), index, 0);
 
-	if (auto pColumns = data.ListBoxColumns())
+	if (auto pColumns = data.AsListBox().Columns())
 	{
 		for (int i = 0; i < pColumns->Count; ++i)
 		{
@@ -456,16 +456,16 @@ static void InsertListBoxRow(OwnerDrawDialogElement& data, int index)
 
 static void ClearListBoxRows(OwnerDrawDialogElement& data, bool destroyColumns)
 {
-	DeleteIntArray(data.ListBoxItemData());
-	DeleteIntArray(data.ListBoxSelectionStates());
-	data.ListBoxTopIndex() = 0;
-	data.ListBoxCurrentSelection() = -1;
+	DeleteIntArray(data.AsListBox().ItemData());
+	DeleteIntArray(data.AsListBox().SelectionStates());
+	data.AsListBox().TopIndex() = 0;
+	data.AsListBox().CurrentSelection() = -1;
 
 	if (destroyColumns)
 	{
-		DeleteListBoxColumns(data.ListBoxColumns());
+		DeleteListBoxColumns(data.AsListBox().Columns());
 	}
-	else if (auto pColumns = data.ListBoxColumns())
+	else if (auto pColumns = data.AsListBox().Columns())
 	{
 		for (int i = 0; i < pColumns->Count; ++i)
 			ClearListBoxColumnCells(pColumns->Items[i], false);
@@ -575,7 +575,7 @@ static void PaintListBox(HWND hWnd, OwnerDrawDialogElement& data, const RECT& cl
 	int itemIndex = static_cast<int>(::SendMessageA(hWnd, LB_GETTOPINDEX, 0, 0));
 	const LONG style = ::GetWindowLongA(hWnd, GWL_STYLE);
 	const int selectionColor = ConvertRGBToSurfaceColor(ListBoxSelectionFillColor());
-	auto pFont = data.ListBoxFont();
+	auto pFont = data.AsListBox().Font();
 
 	while (itemIndex >= 0 && itemIndex < itemCount)
 	{
@@ -602,7 +602,7 @@ static void PaintListBox(HWND hWnd, OwnerDrawDialogElement& data, const RECT& cl
 		if (selected)
 			DSurface::Alternate->FillRect(&rowRect, selectionColor);
 
-		if (auto pColumns = data.ListBoxColumns())
+		if (auto pColumns = data.AsListBox().Columns())
 		{
 			for (int columnIndex = 0; columnIndex < pColumns->Count; ++columnIndex)
 			{
@@ -677,7 +677,7 @@ static void PaintListBox(HWND hWnd, OwnerDrawDialogElement& data, const RECT& cl
 		}
 		else
 		{
-			COLORREF textColor = GetIntArrayValue(data.ListBoxItemData(), itemIndex, ListBoxTextColor());
+			COLORREF textColor = GetIntArrayValue(data.AsListBox().ItemData(), itemIndex, ListBoxTextColor());
 			if (textColor == static_cast<COLORREF>(-1))
 				textColor = ListBoxTextColor();
 
@@ -708,8 +708,8 @@ static void PaintListBox(HWND hWnd, OwnerDrawDialogElement& data, const RECT& cl
 	}
 
 	::ValidateRect(hWnd, &updateRect);
-	if (data.ListBoxScrollBarHwnd())
-		::InvalidateRect(data.ListBoxScrollBarHwnd(), nullptr, FALSE);
+	if (data.AsListBox().ScrollBarHwnd())
+		::InvalidateRect(data.AsListBox().ScrollBarHwnd(), nullptr, FALSE);
 }
 
 static void SyncListBoxScrollBar(HWND hWnd, OwnerDrawDialogElement& data, const RECT& clientRect, int itemCount, int itemHeight)
@@ -722,18 +722,18 @@ static void SyncListBoxScrollBar(HWND hWnd, OwnerDrawDialogElement& data, const 
 	if (maxTopIndex < 0)
 		maxTopIndex = 0;
 
-	if (data.ListBoxTopIndex() > maxTopIndex)
-		data.ListBoxTopIndex() = maxTopIndex;
+	if (data.AsListBox().TopIndex() > maxTopIndex)
+		data.AsListBox().TopIndex() = maxTopIndex;
 
-	if (data.ListBoxScrollBarHwnd() && reinterpret_cast<intptr_t>(data.ListBoxScrollBarHwnd()) > 1)
+	if (data.AsListBox().ScrollBarHwnd() && reinterpret_cast<intptr_t>(data.AsListBox().ScrollBarHwnd()) > 1)
 	{
 		SCROLLINFO scrollInfo {};
 		scrollInfo.cbSize = sizeof(scrollInfo);
 		scrollInfo.fMask = SIF_RANGE | SIF_POS;
 		scrollInfo.nMin = 0;
 		scrollInfo.nMax = maxTopIndex;
-		scrollInfo.nPos = data.ListBoxTopIndex();
-		::SendMessageA(data.ListBoxScrollBarHwnd(), SBM_SETSCROLLINFO, 0, reinterpret_cast<LPARAM>(&scrollInfo));
+		scrollInfo.nPos = data.AsListBox().TopIndex();
+		::SendMessageA(data.AsListBox().ScrollBarHwnd(), SBM_SETSCROLLINFO, 0, reinterpret_cast<LPARAM>(&scrollInfo));
 	}
 }
 
@@ -748,9 +748,9 @@ static void UpdateListBoxScrollBar(HWND hWnd, OwnerDrawDialogElement& data, cons
 
 	if (needsScrollbar)
 	{
-		if (!data.ListBoxScrollBarHwnd())
+		if (!data.AsListBox().ScrollBarHwnd())
 		{
-			data.ListBoxScrollBarHwnd() = reinterpret_cast<HWND>(1);
+			data.AsListBox().ScrollBarHwnd() = reinterpret_cast<HWND>(1);
 
 			const HWND parentHwnd = ::GetParent(hWnd);
 			RECT parentRect {};
@@ -762,7 +762,7 @@ static void UpdateListBoxScrollBar(HWND hWnd, OwnerDrawDialogElement& data, cons
 			const int y = listRect.top - parentRect.top + clientRect.top;
 			const int height = listRect.bottom - listRect.top;
 
-			data.ListBoxScrollBarHwnd() = ::CreateWindowExA(
+			data.AsListBox().ScrollBarHwnd() = ::CreateWindowExA(
 				0,
 				"Scrollbar",
 				nullptr,
@@ -776,13 +776,13 @@ static void UpdateListBoxScrollBar(HWND hWnd, OwnerDrawDialogElement& data, cons
 				reinterpret_cast<HINSTANCE>(Phobos::hInstance),
 				nullptr);
 
-			data.ListBoxScrollBarWidth() = scrollBarWidth;
-			OwnerDraw::RegisterChildControlProc(data.ListBoxScrollBarHwnd(), 0);
+			data.AsListBox().ScrollBarWidth() = scrollBarWidth;
+			OwnerDraw::RegisterChildControlProc(data.AsListBox().ScrollBarHwnd(), 0);
 
-			if (auto pScrollData = FindOwnerDrawData(data.ListBoxScrollBarHwnd()))
+			if (auto pScrollData = FindOwnerDrawData(data.AsListBox().ScrollBarHwnd()))
 			{
-				pScrollData->ScrollBarNotifyHwnd() = hWnd;
-				pScrollData->ScrollBarDisabled() = false;
+				pScrollData->AsScrollBar().NotifyHwnd() = hWnd;
+				pScrollData->AsScrollBar().Disabled() = false;
 			}
 
 			SyncListBoxScrollBar(hWnd, data, clientRect, itemCount, itemHeight);
@@ -796,22 +796,22 @@ static void UpdateListBoxScrollBar(HWND hWnd, OwnerDrawDialogElement& data, cons
 				listRect.bottom - listRect.top,
 				SWP_NOMOVE | SWP_NOZORDER);
 
-			::ShowWindow(data.ListBoxScrollBarHwnd(), SW_SHOW);
-			::BringWindowToTop(data.ListBoxScrollBarHwnd());
-			::InvalidateRect(data.ListBoxScrollBarHwnd(), nullptr, FALSE);
-			::UpdateWindow(data.ListBoxScrollBarHwnd());
+			::ShowWindow(data.AsListBox().ScrollBarHwnd(), SW_SHOW);
+			::BringWindowToTop(data.AsListBox().ScrollBarHwnd());
+			::InvalidateRect(data.AsListBox().ScrollBarHwnd(), nullptr, FALSE);
+			::UpdateWindow(data.AsListBox().ScrollBarHwnd());
 		}
 
 		return;
 	}
 
-	if (!data.ListBoxScrollBarHwnd() || data.NeedsControlImage)
+	if (!data.AsListBox().ScrollBarHwnd() || data.NeedsControlImage)
 		return;
 
-	const HWND scrollBarHwnd = data.ListBoxScrollBarHwnd();
+	const HWND scrollBarHwnd = data.AsListBox().ScrollBarHwnd();
 	::DestroyWindow(scrollBarHwnd);
 	CleanupDestroyedWindow(scrollBarHwnd);
-	data.ListBoxScrollBarHwnd() = nullptr;
+	data.AsListBox().ScrollBarHwnd() = nullptr;
 
 	RECT listRect {};
 	::GetWindowRect(hWnd, &listRect);
@@ -824,7 +824,7 @@ static void UpdateListBoxScrollBar(HWND hWnd, OwnerDrawDialogElement& data, cons
 		listRect.bottom - listRect.top,
 		SWP_NOMOVE | SWP_NOZORDER);
 
-	data.ListBoxScrollBarWidth() = 0;
+	data.AsListBox().ScrollBarWidth() = 0;
 }
 
 LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -876,7 +876,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 
 	auto setSelection = [&](int index, int selected)
 	{
-		SetIntArrayValue(data.ListBoxSelectionStates(), index, selected ? 1 : 0, 0);
+		SetIntArrayValue(data.AsListBox().SelectionStates(), index, selected ? 1 : 0, 0);
 	};
 
 	auto playClick = []()
@@ -983,7 +983,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	switch (message)
 	{
 	case WM_SIZE:
-			if (data.ListBoxScrollBarHwnd() && reinterpret_cast<intptr_t>(data.ListBoxScrollBarHwnd()) > 1)
+			if (data.AsListBox().ScrollBarHwnd() && reinterpret_cast<intptr_t>(data.AsListBox().ScrollBarHwnd()) > 1)
 		{
 			const HWND parentHwnd = ::GetParent(hWnd);
 			RECT parentRect {};
@@ -991,7 +991,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 			OwnerDraw::GetRectangle(parentHwnd, &parentRect);
 			OwnerDraw::GetRectangle(hWnd, &listRect);
 			::MoveWindow(
-				data.ListBoxScrollBarHwnd(),
+				data.AsListBox().ScrollBarHwnd(),
 				listRect.right - parentRect.left,
 				listRect.top - parentRect.top,
 				2 * inset + ListBoxScrollBarExtraWidth,
@@ -1033,14 +1033,14 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		}
 
 		::SendMessageA(hWnd, LB_SETITEMHEIGHT, static_cast<WPARAM>(-1), LOWORD(metrics.tmHeight + 2));
-		data.Extra[SavedFontExtraIndex] = static_cast<int>(wParam);
+		data.AsListBox().SavedFont() = static_cast<int>(wParam);
 		return 0;
 	}
 
 	case WM_VSCROLL:
-		if (data.ListBoxScrollBarHwnd())
+		if (data.AsListBox().ScrollBarHwnd())
 		{
-			const auto position = ::SendMessageA(data.ListBoxScrollBarHwnd(), SBM_GETPOS, 0, 0);
+			const auto position = ::SendMessageA(data.AsListBox().ScrollBarHwnd(), SBM_GETPOS, 0, 0);
 			if (position != ::SendMessageA(hWnd, LB_GETTOPINDEX, 0, 0))
 				::SendMessageA(hWnd, LB_SETTOPINDEX, position, 0);
 		}
@@ -1049,13 +1049,13 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	case WM_RBUTTONDOWN:
 		if (::GetWindowLongA(hWnd, GWL_STYLE) & LBS_MULTIPLESEL)
 		{
-			if (auto pSelections = data.ListBoxSelectionStates())
+			if (auto pSelections = data.AsListBox().SelectionStates())
 			{
 				for (int i = 0; i < pSelections->Count; ++i)
 					pSelections->Items[i] = 0;
 			}
 
-			data.ListBoxCurrentSelection() = -1;
+			data.AsListBox().CurrentSelection() = -1;
 			NotifyListBoxSelectionChanged(hWnd);
 			::InvalidateRect(hWnd, nullptr, FALSE);
 			return 0;
@@ -1069,7 +1069,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	case WM_LBUTTONDOWN:
 	{
 		const int itemHeight = std::max(static_cast<int>(::SendMessageA(hWnd, LB_GETITEMHEIGHT, 0, 0)), 1);
-		const int itemIndex = data.ListBoxTopIndex() + SignedHighWord(lParam) / itemHeight;
+		const int itemIndex = data.AsListBox().TopIndex() + SignedHighWord(lParam) / itemHeight;
 		const int itemCount = static_cast<int>(::SendMessageA(hWnd, LB_GETCOUNT, 0, 0));
 		if (itemIndex < 0 || itemIndex >= itemCount)
 			return 0;
@@ -1106,16 +1106,16 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		if (index >= itemCount)
 			index = itemCount - 1;
 
-		if (!data.ListBoxSelectionStates())
-			data.ListBoxSelectionStates() = CreateIntArray();
+		if (!data.AsListBox().SelectionStates())
+			data.AsListBox().SelectionStates() = CreateIntArray();
 
 		if (index == -1)
 		{
-			if (data.ListBoxSelectionStates())
+			if (data.AsListBox().SelectionStates())
 			{
-				EnsureIntArraySize(*data.ListBoxSelectionStates(), itemCount, 0);
-				for (int i = 0; i < data.ListBoxSelectionStates()->Count; ++i)
-					data.ListBoxSelectionStates()->Items[i] = wParam ? 1 : 0;
+				EnsureIntArraySize(*data.AsListBox().SelectionStates(), itemCount, 0);
+				for (int i = 0; i < data.AsListBox().SelectionStates()->Count; ++i)
+					data.AsListBox().SelectionStates()->Items[i] = wParam ? 1 : 0;
 			}
 		}
 		else
@@ -1129,12 +1129,12 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	}
 
 	case LB_GETSEL:
-		return GetIntArrayValue(data.ListBoxSelectionStates(), static_cast<int>(wParam), 0);
+		return GetIntArrayValue(data.AsListBox().SelectionStates(), static_cast<int>(wParam), 0);
 
 	case LB_GETSELCOUNT:
 	{
 		int count = 0;
-		if (auto pSelections = data.ListBoxSelectionStates())
+		if (auto pSelections = data.AsListBox().SelectionStates())
 		{
 			for (int i = 0; i < pSelections->Count; ++i)
 			{
@@ -1151,7 +1151,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		auto pOut = reinterpret_cast<int*>(lParam);
 		if (pOut)
 		{
-			if (auto pSelections = data.ListBoxSelectionStates())
+			if (auto pSelections = data.AsListBox().SelectionStates())
 			{
 				for (int i = 0; i < pSelections->Count && written < static_cast<int>(wParam); ++i)
 				{
@@ -1174,14 +1174,14 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		if (last >= itemCount)
 			last = itemCount - 1;
 
-		if (!data.ListBoxSelectionStates())
-			data.ListBoxSelectionStates() = CreateIntArray();
+		if (!data.AsListBox().SelectionStates())
+			data.AsListBox().SelectionStates() = CreateIntArray();
 
-		if (data.ListBoxSelectionStates())
+		if (data.AsListBox().SelectionStates())
 		{
-			EnsureIntArraySize(*data.ListBoxSelectionStates(), last + 1, 0);
+			EnsureIntArraySize(*data.AsListBox().SelectionStates(), last + 1, 0);
 			for (int i = first; i <= last; ++i)
-				data.ListBoxSelectionStates()->Items[i] = wParam ? 1 : 0;
+				data.AsListBox().SelectionStates()->Items[i] = wParam ? 1 : 0;
 		}
 
 		NotifyListBoxSelectionChanged(hWnd);
@@ -1194,10 +1194,10 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		const int itemCount = static_cast<int>(::SendMessageA(hWnd, LB_GETCOUNT, 0, 0));
 		if (selection >= -1 && selection < itemCount)
 		{
-			if (data.ListBoxCurrentSelection() != -1)
-				setSelection(data.ListBoxCurrentSelection(), 0);
+			if (data.AsListBox().CurrentSelection() != -1)
+				setSelection(data.AsListBox().CurrentSelection(), 0);
 
-			data.ListBoxCurrentSelection() = selection;
+			data.AsListBox().CurrentSelection() = selection;
 			if (selection != -1)
 				setSelection(selection, 1);
 		}
@@ -1208,10 +1208,10 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	}
 
 	case LB_GETCURSEL:
-		return data.ListBoxCurrentSelection();
+		return data.AsListBox().CurrentSelection();
 
 	case LB_GETTOPINDEX:
-		return data.ListBoxTopIndex();
+		return data.AsListBox().TopIndex();
 
 	case LB_SETTOPINDEX:
 	{
@@ -1227,9 +1227,9 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		else if (topIndex > itemCount - visibleItems)
 			topIndex = itemCount - visibleItems;
 
-		if (topIndex != data.ListBoxTopIndex())
+		if (topIndex != data.AsListBox().TopIndex())
 		{
-			data.ListBoxTopIndex() = topIndex;
+			data.AsListBox().TopIndex() = topIndex;
 			::InvalidateRect(hWnd, nullptr, FALSE);
 		}
 
@@ -1241,9 +1241,9 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		const int index = static_cast<int>(wParam);
 		const int itemCount = static_cast<int>(::SendMessageA(hWnd, LB_GETCOUNT, 0, 0));
 		const int itemHeight = std::max(static_cast<int>(::SendMessageA(hWnd, LB_GETITEMHEIGHT, 0, 0)), 1);
-		const int visibleIndex = index - data.ListBoxTopIndex();
+		const int visibleIndex = index - data.AsListBox().TopIndex();
 
-		if (index < data.ListBoxTopIndex() || index >= itemCount || visibleIndex > (clientRect.bottom - clientRect.top) / itemHeight)
+		if (index < data.AsListBox().TopIndex() || index >= itemCount || visibleIndex > (clientRect.bottom - clientRect.top) / itemHeight)
 			return LB_ERR;
 
 		if (auto pRect = reinterpret_cast<RECT*>(lParam))
@@ -1359,7 +1359,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		if (x < clientRect.right && y < clientRect.bottom)
 		{
 			const int itemHeight = std::max(static_cast<int>(::SendMessageA(hWnd, LB_GETITEMHEIGHT, 0, 0)), 1);
-			const int itemIndex = data.ListBoxTopIndex() + y / itemHeight;
+			const int itemIndex = data.AsListBox().TopIndex() + y / itemHeight;
 			const int itemCount = static_cast<int>(::SendMessageA(hWnd, LB_GETCOUNT, 0, 0));
 			if (itemIndex >= 0 && itemIndex < itemCount)
 				return itemIndex;
@@ -1368,14 +1368,14 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	}
 
 	case WW_LB_GETSCROLLBARHWND:
-		return reinterpret_cast<LRESULT>(data.ListBoxScrollBarHwnd());
+		return reinterpret_cast<LRESULT>(data.AsListBox().ScrollBarHwnd());
 
 	case WW_LB_ADDCOLUMN:
 	{
-		if (!data.ListBoxColumns())
-			data.ListBoxColumns() = CreateListBoxColumnArray();
+		if (!data.AsListBox().Columns())
+			data.AsListBox().Columns() = CreateListBoxColumnArray();
 
-		auto pColumns = data.ListBoxColumns();
+		auto pColumns = data.AsListBox().Columns();
 		if (!pColumns)
 			return -1;
 
@@ -1395,7 +1395,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 
 	case WW_LB_REMOVECOLUMN:
 	{
-		auto pColumns = data.ListBoxColumns();
+		auto pColumns = data.AsListBox().Columns();
 		if (!pColumns)
 			return -1;
 
@@ -1422,7 +1422,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 
 	case WW_LB_SETCELLTEXT:
 	{
-		auto pColumns = data.ListBoxColumns();
+		auto pColumns = data.AsListBox().Columns();
 		const int columnX = LOWORD(wParam);
 		const int rowIndex = HIWORD(wParam);
 		auto pColumn = FindListBoxColumn(pColumns, columnX);
@@ -1448,9 +1448,9 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	{
 		const int itemCount = static_cast<int>(::SendMessageA(hWnd, LB_GETCOUNT, 0, 0));
 		const int itemHeight = std::max(static_cast<int>(::SendMessageA(hWnd, LB_GETITEMHEIGHT, 0, 0)), 1);
-		const int rowIndex = data.ListBoxTopIndex() + SignedHighWord(wParam) / itemHeight;
+		const int rowIndex = data.AsListBox().TopIndex() + SignedHighWord(wParam) / itemHeight;
 		const int x = SignedLowWord(wParam);
-		auto pColumn = FindListBoxColumnAtX(data.ListBoxColumns(), x);
+		auto pColumn = FindListBoxColumnAtX(data.AsListBox().Columns(), x);
 		if (!pColumn || rowIndex < 0 || rowIndex >= itemCount || rowIndex >= pColumn->CellCount)
 			return 0;
 
@@ -1463,10 +1463,10 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 
 	case WW_INITDIALOG:
 	{
-		data.ListBoxCurrentSelection() = -1;
+		data.AsListBox().CurrentSelection() = -1;
 
 		int fontHeight = 10;
-		if (const auto pFont = data.ListBoxFont() ? data.ListBoxFont() : BitFont::Instance)
+		if (const auto pFont = data.AsListBox().Font() ? data.AsListBox().Font() : BitFont::Instance)
 		{
 			if (pFont->InternalPTR)
 				fontHeight = pFont->InternalPTR->FontHeight;
@@ -1477,7 +1477,7 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	}
 
 	case WW_SETCOLOR:
-		SetIntArrayValue(data.ListBoxItemData(), static_cast<int>(wParam), static_cast<int>(lParam), -1);
+		SetIntArrayValue(data.AsListBox().ItemData(), static_cast<int>(wParam), static_cast<int>(lParam), -1);
 		::InvalidateRect(hWnd, nullptr, FALSE);
 		return finish(0);
 

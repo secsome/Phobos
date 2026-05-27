@@ -34,19 +34,19 @@ static UINT GetStaticAnimationTimerInterval(HWND parentHwnd, HWND controlHwnd)
 
 static void DestroyStaticMovie(OwnerDrawDialogElement& data)
 {
-	auto pMovie = data.StaticMovieHandle();
+	auto pMovie = data.AsStatic().MovieHandle();
 	if (!pMovie)
 		return;
 
 	if (pMovie->VTable && pMovie->VTable->Destructor)
 		pMovie->VTable->Destructor(pMovie, 1);
 
-	data.StaticMovieHandle() = nullptr;
+	data.AsStatic().MovieHandle() = nullptr;
 }
 
 static void DestroyStaticMovieAux(OwnerDrawDialogElement& data)
 {
-	DeleteUnknownGameObject(data.StaticMovieAuxHandle());
+	DeleteUnknownGameObject(data.AsStatic().MovieAuxHandle());
 }
 
 static void DetachStaticMovie(HWND hWnd, OwnerDrawDialogElement& data)
@@ -71,7 +71,7 @@ static LRESULT LoadStaticMovie(HWND hWnd, OwnerDrawDialogElement& data, const ch
 	OwnerDraw::GetRectangle(hWnd, &ownerRect);
 
 	auto pMovie = OwnerDraw::InitMovieHandle(pMovieName, DSurface::Alternate, nullptr);
-	data.StaticMovieHandle() = pMovie;
+	data.AsStatic().MovieHandle() = pMovie;
 	if (pMovie)
 	{
 		if (pMovie->VTable && pMovie->VTable->SetPosition)
@@ -97,8 +97,8 @@ static const char* GetStaticMovieName(int index)
 
 static bool EnsureStaticBackground(HWND hWnd, OwnerDrawDialogElement& data)
 {
-	if (data.StaticCachedBackground() || !DSurface::Alternate)
-		return data.StaticCachedBackground() != nullptr;
+	if (data.AsStatic().CachedBackground() || !DSurface::Alternate)
+		return data.AsStatic().CachedBackground() != nullptr;
 
 	RECT ownerRect {};
 	RECT clientRect {};
@@ -110,21 +110,21 @@ static bool EnsureStaticBackground(HWND hWnd, OwnerDrawDialogElement& data)
 	if (width <= 0 || height <= 0)
 		return false;
 
-	data.StaticCachedBackground() = GameCreate<BSurface>(width, height);
-	if (!data.StaticCachedBackground())
+	data.AsStatic().CachedBackground() = GameCreate<BSurface>(width, height);
+	if (!data.AsStatic().CachedBackground())
 		return false;
 
 	++OwnerDraw::CachedSurfaceCount;
 
 	RectangleStruct destRect { 0, 0, width, height };
 	RectangleStruct sourceRect { ownerRect.left, ownerRect.top, width, height };
-	CopySurfacePart(data.StaticCachedBackground(), destRect, DSurface::Alternate, sourceRect);
+	CopySurfacePart(data.AsStatic().CachedBackground(), destRect, DSurface::Alternate, sourceRect);
 	return true;
 }
 
 static void RestoreStaticBackground(HWND hWnd, OwnerDrawDialogElement& data, bool inclusiveBounds)
 {
-	if (!data.StaticCachedBackground() || !DSurface::Alternate)
+	if (!data.AsStatic().CachedBackground() || !DSurface::Alternate)
 		return;
 
 	RECT ownerRect {};
@@ -139,25 +139,25 @@ static void RestoreStaticBackground(HWND hWnd, OwnerDrawDialogElement& data, boo
 
 	RectangleStruct destRect { ownerRect.left, ownerRect.top, width, height };
 	RectangleStruct sourceRect { 0, 0, width, height };
-	CopySurfacePart(DSurface::Alternate, destRect, data.StaticCachedBackground(), sourceRect);
+	CopySurfacePart(DSurface::Alternate, destRect, data.AsStatic().CachedBackground(), sourceRect);
 }
 
 static void ResetStaticBackground(HWND hWnd, OwnerDrawDialogElement& data)
 {
-	if (data.StaticCachedBackground())
-		DeleteSurfaceObject(data.StaticCachedBackground());
+	if (data.AsStatic().CachedBackground())
+		DeleteSurfaceObject(data.AsStatic().CachedBackground());
 
 	::InvalidateRect(hWnd, nullptr, FALSE);
 }
 
 static void DrawStaticText(HWND hWnd, OwnerDrawDialogElement& data, const RECT& ownerRect)
 {
-	const auto pText = data.StaticText();
+	const auto pText = data.AsStatic().Text();
 	if (!pText)
 		return;
 
-	const auto drawMode = data.StaticDrawMode();
-	if (drawMode != WWUIStaticDrawMode::Text && !data.StaticAnimationRunning())
+	const auto drawMode = data.AsStatic().DrawMode();
+	if (drawMode != WWUIStaticDrawMode::Text && !data.AsStatic().AnimationRunning())
 		return;
 
 	const LONG windowStyle = ::GetWindowLongA(hWnd, GWL_STYLE);
@@ -169,31 +169,31 @@ static void DrawStaticText(HWND hWnd, OwnerDrawDialogElement& data, const RECT& 
 
 	const COLORREF textColor = (windowStyle & WS_DISABLED)
 		? Phobos::UI::ColorDisabledLabel
-		: data.StaticTextColor();
+		: data.AsStatic().TextColor();
 
 	RECT textRect = ownerRect;
 	OwnerDraw::DrawWideText(
 		DSurface::Alternate,
 		pText,
 		&textRect,
-		data.StaticFont(),
+		data.AsStatic().Font(),
 		textColor,
 		textDrawStyle,
-		data.StaticTextFlags(),
+		data.AsStatic().TextFlags(),
 		0,
-		data.StaticTextRevealCount(),
-		data.StaticColorAdjust());
+		data.AsStatic().TextRevealCount(),
+		data.AsStatic().ColorAdjust());
 
-	if (data.StaticSoundIndex() != -1)
-		VocClass::PlayGlobal(data.StaticSoundIndex(), 0x2000, 1.0f);
+	if (data.AsStatic().SoundIndex() != -1)
+		VocClass::PlayGlobal(data.AsStatic().SoundIndex(), 0x2000, 1.0f);
 
 	if (drawMode == WWUIStaticDrawMode::TypewriterText)
 	{
-		const int revealLimit = static_cast<int>(std::wcslen(pText)) + data.StaticColorAdjust() + 1;
-		if (data.StaticTextRevealCount() < revealLimit)
+		const int revealLimit = static_cast<int>(std::wcslen(pText)) + data.AsStatic().ColorAdjust() + 1;
+		if (data.AsStatic().TextRevealCount() < revealLimit)
 		{
-			data.StaticTextRevealCount() += data.StaticTextRevealStep();
-			if (data.StaticTextRevealCount() >= revealLimit)
+			data.AsStatic().TextRevealCount() += data.AsStatic().TextRevealStep();
+			if (data.AsStatic().TextRevealCount() >= revealLimit)
 				::KillTimer(hWnd, 0);
 		}
 	}
@@ -201,7 +201,7 @@ static void DrawStaticText(HWND hWnd, OwnerDrawDialogElement& data, const RECT& 
 
 static bool DrawStaticPCX(HWND hWnd, OwnerDrawDialogElement& data, RectangleStruct imageRect)
 {
-	auto pImage = static_cast<BSurface*>(data.StaticImageSurface());
+	auto pImage = static_cast<BSurface*>(data.AsStatic().ImageSurface());
 	if (!pImage)
 		return false;
 
@@ -231,7 +231,7 @@ static bool DrawStaticPCX(HWND hWnd, OwnerDrawDialogElement& data, RectangleStru
 
 static void DrawStaticShape(HWND hWnd, OwnerDrawDialogElement& data, const RectangleStruct& imageRect, bool animate)
 {
-	auto pShape = data.StaticShape();
+	auto pShape = data.AsStatic().Shape();
 	if (!pShape)
 		return;
 
@@ -245,10 +245,10 @@ static void DrawStaticShape(HWND hWnd, OwnerDrawDialogElement& data, const Recta
 
 	Point2D position { shapeX, shapeY };
 	RectangleStruct bounds = DSurface::Alternate->GetRect();
-	const int currentFrame = data.StaticCurrentFrame();
+	const int currentFrame = data.AsStatic().CurrentFrame();
 	CC_Draw_Shape(
 		DSurface::Alternate,
-		data.StaticShapeDrawer(),
+		data.AsStatic().ShapeDrawer(),
 		pShape,
 		currentFrame,
 		&position,
@@ -264,16 +264,16 @@ static void DrawStaticShape(HWND hWnd, OwnerDrawDialogElement& data, const Recta
 		0,
 		0);
 
-	if (animate && data.StaticAnimationRunning())
+	if (animate && data.AsStatic().AnimationRunning())
 	{
 		int nextFrame = currentFrame + 1;
-		if (nextFrame >= data.StaticFrameCount())
+		if (nextFrame >= data.AsStatic().FrameCount())
 			nextFrame = 0;
 
-		data.StaticCurrentFrame() = nextFrame;
-		if (data.StaticFrameNotifyHwnd())
+		data.AsStatic().CurrentFrame() = nextFrame;
+		if (data.AsStatic().FrameNotifyHwnd())
 		{
-			::SendMessageA(data.StaticFrameNotifyHwnd(), WW_STATIC_ANIMFRAMENOTIFY, nextFrame, reinterpret_cast<LPARAM>(hWnd));
+			::SendMessageA(data.AsStatic().FrameNotifyHwnd(), WW_STATIC_ANIMFRAMENOTIFY, nextFrame, reinterpret_cast<LPARAM>(hWnd));
 			::ValidateRect(hWnd, nullptr);
 		}
 	}
@@ -281,7 +281,7 @@ static void DrawStaticShape(HWND hWnd, OwnerDrawDialogElement& data, const Recta
 
 static LRESULT PaintStatic(HWND hWnd, OwnerDrawDialogElement& data)
 {
-	if (data.StaticSuppressPaint() || data.StaticMovieHandle())
+	if (data.AsStatic().SuppressPaint() || data.AsStatic().MovieHandle())
 	{
 		::ValidateRect(hWnd, nullptr);
 		return 0;
@@ -292,7 +292,7 @@ static LRESULT PaintStatic(HWND hWnd, OwnerDrawDialogElement& data)
 	RECT ownerRect {};
 	OwnerDraw::GetRectangle(hWnd, &ownerRect);
 
-	if (data.StaticFillBackground())
+	if (data.AsStatic().FillBackground())
 	{
 		RectangleStruct fillRect
 		{
@@ -301,10 +301,10 @@ static LRESULT PaintStatic(HWND hWnd, OwnerDrawDialogElement& data)
 			ownerRect.right - ownerRect.left,
 			ownerRect.bottom - ownerRect.top
 		};
-		DSurface::Alternate->FillRect(&fillRect, ConvertRGBToSurfaceColor(data.StaticFillColor()));
+		DSurface::Alternate->FillRect(&fillRect, ConvertRGBToSurfaceColor(data.AsStatic().FillColor()));
 	}
 
-	const auto drawMode = data.StaticDrawMode();
+	const auto drawMode = data.AsStatic().DrawMode();
 	if (drawMode < WWUIStaticDrawMode::PCX)
 	{
 		DrawStaticText(hWnd, data, ownerRect);
@@ -312,7 +312,7 @@ static LRESULT PaintStatic(HWND hWnd, OwnerDrawDialogElement& data)
 	else if ((drawMode == WWUIStaticDrawMode::PCX
 		|| drawMode == WWUIStaticDrawMode::Shape
 		|| drawMode == WWUIStaticDrawMode::AnimatedShape)
-		&& static_cast<int>(::GetTickCount() - data.StaticLastFrameTick()) > data.StaticFrameDelayMs())
+		&& static_cast<int>(::GetTickCount() - data.AsStatic().LastFrameTick()) > data.AsStatic().FrameDelayMs())
 	{
 		RestoreStaticBackground(hWnd, data, false);
 
@@ -341,17 +341,17 @@ static LRESULT PaintStatic(HWND hWnd, OwnerDrawDialogElement& data)
 
 static void DestroyStaticResources(HWND hWnd, OwnerDrawDialogElement& data)
 {
-	if (data.StaticCachedBackground())
-		DeleteSurfaceObject(data.StaticCachedBackground());
+	if (data.AsStatic().CachedBackground())
+		DeleteSurfaceObject(data.AsStatic().CachedBackground());
 
-	if (data.StaticOwnsShape() && data.StaticShape())
+	if (data.AsStatic().OwnsShape() && data.AsStatic().Shape())
 	{
-		YRMemory::Deallocate(data.StaticShape());
-		data.StaticShape() = nullptr;
+		YRMemory::Deallocate(data.AsStatic().Shape());
+		data.AsStatic().Shape() = nullptr;
 	}
 
-	const auto drawMode = data.StaticDrawMode();
-	if ((drawMode == WWUIStaticDrawMode::TypewriterText && data.StaticAnimationRunning())
+	const auto drawMode = data.AsStatic().DrawMode();
+	if ((drawMode == WWUIStaticDrawMode::TypewriterText && data.AsStatic().AnimationRunning())
 		|| drawMode == WWUIStaticDrawMode::AnimatedShape)
 	{
 		::KillTimer(hWnd, 0);
@@ -364,7 +364,7 @@ static void DestroyStaticResources(HWND hWnd, OwnerDrawDialogElement& data)
 
 static LRESULT HandleStaticMovieTimer(HWND hWnd, OwnerDrawDialogElement& data)
 {
-	auto pMovie = data.StaticMovieHandle();
+	auto pMovie = data.AsStatic().MovieHandle();
 	if (!pMovie)
 		return 0;
 
@@ -373,7 +373,7 @@ static LRESULT HandleStaticMovieTimer(HWND hWnd, OwnerDrawDialogElement& data)
 
 	if (pMovie->VTable && pMovie->VTable->FramesLeft && pMovie->VTable->FramesLeft(pMovie))
 	{
-		if (data.StaticLoopMovie())
+		if (data.AsStatic().LoopMovie())
 		{
 			if (pMovie->VTable->SeekToFrame)
 				pMovie->VTable->SeekToFrame(pMovie, 1);
@@ -389,7 +389,7 @@ static LRESULT HandleStaticMovieTimer(HWND hWnd, OwnerDrawDialogElement& data)
 
 static LRESULT HandleStaticVisualTimer(HWND hWnd, OwnerDrawDialogElement& data)
 {
-	const auto drawMode = data.StaticDrawMode();
+	const auto drawMode = data.AsStatic().DrawMode();
 	if (drawMode == WWUIStaticDrawMode::TypewriterText)
 	{
 		::InvalidateRect(hWnd, nullptr, TRUE);
@@ -401,9 +401,9 @@ static LRESULT HandleStaticVisualTimer(HWND hWnd, OwnerDrawDialogElement& data)
 	if (!singleShotVisualTimer && !animatedShapeTimer)
 		return 0;
 
-	if (static_cast<int>(::GetTickCount() - data.StaticLastFrameTick()) > data.StaticFrameDelayMs())
+	if (static_cast<int>(::GetTickCount() - data.AsStatic().LastFrameTick()) > data.AsStatic().FrameDelayMs())
 	{
-		if (singleShotVisualTimer || (animatedShapeTimer && data.StaticAnimationRunning()))
+		if (singleShotVisualTimer || (animatedShapeTimer && data.AsStatic().AnimationRunning()))
 		{
 			::InvalidateRect(hWnd, nullptr, TRUE);
 			if (singleShotVisualTimer)
@@ -413,12 +413,12 @@ static LRESULT HandleStaticVisualTimer(HWND hWnd, OwnerDrawDialogElement& data)
 			}
 		}
 
-		if (!data.StaticFrameCount())
+		if (!data.AsStatic().FrameCount())
 		{
 			::KillTimer(hWnd, 0);
-			if (auto pShape = data.StaticShape())
+			if (auto pShape = data.AsStatic().Shape())
 			{
-				data.StaticFrameCount() = pShape->Frames;
+				data.AsStatic().FrameCount() = pShape->Frames;
 				::SetTimer(hWnd, 0, pShape->Frames, nullptr);
 			}
 		}
@@ -443,9 +443,9 @@ LRESULT CALLBACK WWUI::StaticCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 	switch (message)
 	{
 	case WW_INITDIALOG:
-		data.StaticDrawMode() = WWUIStaticDrawMode::Text;
-		data.StaticTextFlags() = 12;
-		data.StaticTextColor() = Phobos::UI::ColorTextLabel;
+		data.AsStatic().DrawMode() = WWUIStaticDrawMode::Text;
+		data.AsStatic().TextFlags() = 12;
+		data.AsStatic().TextColor() = Phobos::UI::ColorTextLabel;
 		return 0;
 
 	case WM_PAINT:
@@ -473,60 +473,60 @@ LRESULT CALLBACK WWUI::StaticCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 			? Phobos::UI::ColorTextLabel
 			: static_cast<COLORREF>(lParam);
 
-		if (newTextColor != data.StaticTextColor())
+		if (newTextColor != data.AsStatic().TextColor())
 			::InvalidateRect(hWnd, nullptr, FALSE);
 
-		data.StaticTextColor() = newTextColor;
+		data.AsStatic().TextColor() = newTextColor;
 		return 0;
 	}
 
 	case WW_SETFILLCOLOR:
-		data.StaticFillBackground() = true;
-		data.StaticFillColor() = static_cast<COLORREF>(lParam);
+		data.AsStatic().FillBackground() = true;
+		data.AsStatic().FillColor() = static_cast<COLORREF>(lParam);
 		return 0;
 
 	case WW_SETTEXTW:
 	case WW_SETTEXTA:
 		RestoreStaticBackground(hWnd, data, true);
-		if (data.StaticCachedBackground())
+		if (data.AsStatic().CachedBackground())
 			::InvalidateRect(hWnd, nullptr, FALSE);
 
 		return 1;
 
 	case WW_RESETANIMTIMER:
-		if (!data.StaticShape()
-			|| data.StaticDrawMode() != WWUIStaticDrawMode::AnimatedShape
-			|| data.StaticAnimationRunning())
+		if (!data.AsStatic().Shape()
+			|| data.AsStatic().DrawMode() != WWUIStaticDrawMode::AnimatedShape
+			|| data.AsStatic().AnimationRunning())
 		{
 			return 0;
 		}
 
-		data.StaticAnimationRunning() = true;
+		data.AsStatic().AnimationRunning() = true;
 		::SetTimer(hWnd, 0, GetStaticAnimationTimerInterval(::GetParent(hWnd), hWnd), nullptr);
 		return 0;
 
 	case WW_STATIC_STOPANIM:
-		if (data.StaticDrawMode() == WWUIStaticDrawMode::AnimatedShape && data.StaticAnimationRunning())
+		if (data.AsStatic().DrawMode() == WWUIStaticDrawMode::AnimatedShape && data.AsStatic().AnimationRunning())
 		{
 			::KillTimer(hWnd, 0);
-			data.StaticAnimationRunning() = false;
+			data.AsStatic().AnimationRunning() = false;
 		}
 		return 0;
 
 	case WW_STATIC_SETANIMFRAME:
-		if (data.StaticDrawMode() == WWUIStaticDrawMode::AnimatedShape)
+		if (data.AsStatic().DrawMode() == WWUIStaticDrawMode::AnimatedShape)
 		{
-			data.StaticCurrentFrame() = static_cast<int>(lParam);
+			data.AsStatic().CurrentFrame() = static_cast<int>(lParam);
 			::InvalidateRect(hWnd, nullptr, TRUE);
 		}
 		return 0;
 
 	case WW_STATIC_GETANIMFRAME:
-		return data.StaticDrawMode() == WWUIStaticDrawMode::AnimatedShape ? data.StaticCurrentFrame() : -1;
+		return data.AsStatic().DrawMode() == WWUIStaticDrawMode::AnimatedShape ? data.AsStatic().CurrentFrame() : -1;
 
 	case WW_STATIC_SETANIMFRAMENOTIFYHWND:
-		if (data.StaticDrawMode() == WWUIStaticDrawMode::AnimatedShape)
-			data.StaticFrameNotifyHwnd() = reinterpret_cast<HWND>(lParam);
+		if (data.AsStatic().DrawMode() == WWUIStaticDrawMode::AnimatedShape)
+			data.AsStatic().FrameNotifyHwnd() = reinterpret_cast<HWND>(lParam);
 		return 0;
 
 	case WW_STATIC_SETCURRENTMOVIEBYINDEX:
@@ -539,7 +539,7 @@ LRESULT CALLBACK WWUI::StaticCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 		return LoadStaticMovie(hWnd, data, reinterpret_cast<const char*>(lParam));
 
 	case WW_STATIC_PAUSEMOVIE:
-		if (auto pMovie = data.StaticMovieHandle())
+		if (auto pMovie = data.AsStatic().MovieHandle())
 		{
 			if (pMovie->VTable && pMovie->VTable->Pause)
 				pMovie->VTable->Pause(pMovie, 1);
@@ -547,7 +547,7 @@ LRESULT CALLBACK WWUI::StaticCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 		return 0;
 
 	case WW_STATIC_CONTINUEMOVIE:
-		if (auto pMovie = data.StaticMovieHandle())
+		if (auto pMovie = data.AsStatic().MovieHandle())
 		{
 			if (pMovie->VTable && pMovie->VTable->Pause)
 				pMovie->VTable->Pause(pMovie, 0);
@@ -559,21 +559,21 @@ LRESULT CALLBACK WWUI::StaticCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 		return 0;
 
 	case WW_STATIC_SETLOOPMOVIE:
-		data.StaticLoopMovie() = static_cast<int>(wParam);
+		data.AsStatic().LoopMovie() = static_cast<int>(wParam);
 		return 0;
 
 	case WW_STATIC_REVEALTEXTS:
-		if (data.StaticDrawMode() != WWUIStaticDrawMode::TypewriterText || data.StaticAnimationRunning())
+		if (data.AsStatic().DrawMode() != WWUIStaticDrawMode::TypewriterText || data.AsStatic().AnimationRunning())
 			return 0;
 
-		data.StaticAnimationRunning() = true;
-		data.StaticTextRevealCount() = 1;
-		::SetTimer(hWnd, 0, data.StaticTextRevealDelay(), nullptr);
+		data.AsStatic().AnimationRunning() = true;
+		data.AsStatic().TextRevealCount() = 1;
+		::SetTimer(hWnd, 0, data.AsStatic().TextRevealDelay(), nullptr);
 		::InvalidateRect(hWnd, nullptr, FALSE);
 		return 0;
 
 	case WW_STATIC_BLITMOVIE:
-		if (auto pMovie = data.StaticMovieHandle())
+		if (auto pMovie = data.AsStatic().MovieHandle())
 		{
 			if (pMovie->VTable && pMovie->VTable->Blit)
 				pMovie->VTable->Blit(pMovie);
