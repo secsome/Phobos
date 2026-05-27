@@ -12,4 +12,5 @@ namespace WWUI
 	LRESULT CALLBACK SliderCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK ProgressCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK NewEditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK EditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 }

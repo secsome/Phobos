@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cwchar>
 #include <cstring>
+#include <mbstring.h>
 #include <iterator>
 #include <new>
 #include <string>
@@ -2612,6 +2613,192 @@ namespace
 		::ValidateRect(hWnd, nullptr);
 	}
 
+	size_t GetEditWideText(HWND hWnd, wchar_t* pWideText, int capacity, int* pSelectionEndChars)
+	{
+		if (pSelectionEndChars)
+			*pSelectionEndChars = 0;
+
+		if (!pWideText || capacity <= 0)
+			return 0;
+
+		const auto pOriginalWndProc = FindWindowProc(OwnerDraw::DialogProcs, hWnd);
+
+		char ansiText[0x400] {};
+		CallSelectedHandler(
+			pOriginalWndProc,
+			hWnd,
+			WM_GETTEXT,
+			static_cast<WPARAM>(std::size(ansiText)),
+			reinterpret_cast<LPARAM>(ansiText));
+
+		if (pSelectionEndChars)
+		{
+			DWORD selectionStart = 0;
+			DWORD selectionEnd = 0;
+			const auto selection = static_cast<DWORD>(CallSelectedHandler(
+				pOriginalWndProc,
+				hWnd,
+				EM_GETSEL,
+				reinterpret_cast<WPARAM>(&selectionStart),
+				reinterpret_cast<LPARAM>(&selectionEnd)));
+			const auto selectionEndBytes = static_cast<size_t>(HIWORD(selection));
+			*pSelectionEndChars = static_cast<int>(_mbsnccnt(
+				reinterpret_cast<const unsigned char*>(ansiText),
+				selectionEndBytes));
+		}
+
+		pWideText[0] = L'\0';
+		::MultiByteToWideChar(CP_ACP, 0, ansiText, -1, pWideText, capacity);
+		pWideText[capacity - 1] = L'\0';
+
+		const size_t wideLength = std::wcslen(pWideText);
+		std::wstring normalized;
+		normalized.reserve(wideLength + 2);
+
+		bool removedNewLine = false;
+		for (size_t i = 0; i < wideLength; ++i)
+		{
+			if (pWideText[i] == L'\r' || pWideText[i] == L'\n')
+			{
+				removedNewLine = true;
+				continue;
+			}
+
+			normalized.push_back(pWideText[i]);
+		}
+
+		if (removedNewLine)
+			normalized += L"\r\n";
+
+		std::wcsncpy(pWideText, normalized.c_str(), static_cast<size_t>(capacity - 1));
+		pWideText[capacity - 1] = L'\0';
+		return std::wcslen(pWideText);
+	}
+
+	LRESULT ForwardEditSetText(OwnerDrawDialogElement& data, HWND hWnd, WNDPROC pOriginalWndProc)
+	{
+		char ansiText[0x800] {};
+		if (data.TextBuffer)
+			WideToCharString(ansiText, static_cast<int>(std::size(ansiText)), data.TextBuffer);
+
+		return CallSelectedHandler(
+			pOriginalWndProc,
+			hWnd,
+			WM_SETTEXT,
+			0,
+			reinterpret_cast<LPARAM>(ansiText));
+	}
+
+	LRESULT CopyEditTextW(HWND hWnd, WPARAM capacityParam, LPARAM lParam)
+	{
+		auto pBuffer = reinterpret_cast<wchar_t*>(lParam);
+		const int capacity = static_cast<int>(capacityParam);
+		if (!pBuffer || capacity <= 0)
+			return 0;
+
+		std::vector<wchar_t> text(0x800);
+		GetEditWideText(hWnd, text.data(), static_cast<int>(text.size()), nullptr);
+
+		std::wcsncpy(pBuffer, text.data(), static_cast<size_t>(capacity - 1));
+		pBuffer[capacity - 1] = L'\0';
+		return static_cast<LRESULT>(std::wcslen(pBuffer));
+	}
+
+	LRESULT CopyEditTextA(HWND hWnd, WPARAM capacityParam, LPARAM lParam)
+	{
+		auto pBuffer = reinterpret_cast<char*>(lParam);
+		const int capacity = static_cast<int>(capacityParam);
+		if (!pBuffer || capacity <= 0)
+			return 0;
+
+		std::vector<wchar_t> text(0x800);
+		GetEditWideText(hWnd, text.data(), static_cast<int>(text.size()), nullptr);
+		WideToCharString(pBuffer, capacity, text.data());
+		return static_cast<LRESULT>(std::strlen(pBuffer));
+	}
+
+	LRESULT AppendEditNewLine(HWND hWnd, WNDPROC pOriginalWndProc)
+	{
+		const int textLength = static_cast<int>(CallSelectedHandler(pOriginalWndProc, hWnd, WM_GETTEXTLENGTH, 0, 0));
+		std::vector<char> text(static_cast<size_t>(std::max(textLength + 3, 3)), '\0');
+
+		CallSelectedHandler(
+			pOriginalWndProc,
+			hWnd,
+			WM_GETTEXT,
+			static_cast<WPARAM>(text.size()),
+			reinterpret_cast<LPARAM>(text.data()));
+
+		const size_t copiedLength = std::strlen(text.data());
+		if (copiedLength + 2 < text.size())
+			std::memcpy(text.data() + copiedLength, "\r\n", 3);
+
+		CallSelectedHandler(pOriginalWndProc, hWnd, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(text.data()));
+
+		if (const HWND parentHwnd = ::GetParent(hWnd))
+		{
+			const int controlId = ::GetWindowLongA(hWnd, GWL_ID) & 0xFFFF;
+			::SendMessageA(parentHwnd, WM_COMMAND, controlId | 0x05010000, reinterpret_cast<LPARAM>(hWnd));
+		}
+
+		return 0;
+	}
+
+	void PaintEdit(HWND hWnd, OwnerDrawDialogElement& data, HWND parentHwnd, UINT message)
+	{
+		if (!DSurface::Alternate)
+			return;
+
+		RECT ownerRect {};
+		OwnerDraw::GetRectangle(hWnd, &ownerRect);
+
+		if (message == WM_PAINT)
+		{
+			RECT updateRect {};
+			if (::GetUpdateRect(hWnd, &updateRect, FALSE))
+			{
+				updateRect.left += ownerRect.left;
+				updateRect.top += ownerRect.top;
+				updateRect.right += ownerRect.left;
+				updateRect.bottom += ownerRect.top;
+			}
+		}
+
+		const int width = ownerRect.right - ownerRect.left + 1;
+		const int height = ownerRect.bottom - ownerRect.top + 1;
+		if (width <= 0 || height <= 0)
+			return;
+
+		RectangleStruct drawRect { ownerRect.left, ownerRect.top, width, height };
+		OwnerDraw::CopyDimmedBackground(&drawRect, hWnd, static_cast<unsigned int>(data.Alpha));
+
+		if (!IsComboBoxParent(parentHwnd))
+			DrawBeveledBorder(DSurface::Alternate, drawRect, 2, -1);
+
+		std::vector<wchar_t> text(0x1400);
+		int caretIndex = 0;
+		GetEditWideText(hWnd, text.data(), static_cast<int>(text.size()), &caretIndex);
+
+		RectangleStruct textRect { ownerRect.left, ownerRect.top, width, height };
+		const bool maskText = ((::GetWindowLongA(hWnd, GWL_STYLE) >> 5) & 1) != 0;
+
+		AnimatedNewEditTextPrint(
+			DSurface::Alternate,
+			textRect,
+			text.data(),
+			caretIndex,
+			data.EditTextFont(),
+			Phobos::UI::ColorText,
+			data.EditTextScrollStart(),
+			data.HasFocus != 0,
+			maskText,
+			false,
+			0,
+			0);
+
+		::ValidateRect(hWnd, nullptr);
+	}
+
 	WWUIIntArray* CreateIntArray()
 	{
 		auto pArray = static_cast<WWUIIntArray*>(YRMemory::Allocate(sizeof(WWUIIntArray)));
@@ -4504,6 +4691,161 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	}
 
 	return finish(forwardOriginal());
+}
+
+LRESULT CALLBACK WWUI::EditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	auto pData = FindOwnerDrawData(hWnd);
+	const auto pOriginalWndProc = FindWindowProc(OwnerDraw::DialogProcs, hWnd);
+	auto forwardOriginal = [&]() -> LRESULT
+	{
+		return CallSelectedHandler(pOriginalWndProc, hWnd, message, wParam, lParam);
+	};
+
+	if (!pData)
+		return forwardOriginal();
+
+	auto& data = *pData;
+	if (::GetFocus() == hWnd && !data.EditFocusRestoreReadyFlag())
+	{
+		data.EditFocusRestorePendingFlag() = 1;
+		::SetFocus(Game::hWnd);
+	}
+
+	const LONG windowStyle = ::GetWindowLongA(hWnd, GWL_STYLE);
+	const HWND parentHwnd = ::GetParent(hWnd);
+
+	if ((message == WM_KEYDOWN || message == WM_KEYUP) && wParam == VK_TAB)
+		return 0;
+
+	switch (message)
+	{
+	case WW_INITDIALOG:
+	{
+		if (!parentHwnd)
+			return 0;
+
+		RECT windowRect {};
+		RECT clientRect {};
+		RECT parentRect {};
+		::GetWindowRect(hWnd, &windowRect);
+		::GetClientRect(hWnd, &clientRect);
+		::GetWindowRect(parentHwnd, &parentRect);
+
+		::MoveWindow(
+			hWnd,
+			windowRect.left - parentRect.left + 1,
+			windowRect.top - parentRect.top + 1,
+			clientRect.right - 2,
+			clientRect.bottom - 2,
+			FALSE);
+
+		if (::GetFocus() == hWnd)
+		{
+			data.EditFocusRestorePendingFlag() = 1;
+			::SetFocus(Game::hWnd);
+		}
+
+		if (windowStyle & WS_TABSTOP)
+		{
+			data.EditRestoreTabStopFlag() = 1;
+			::SetWindowLongA(hWnd, GWL_STYLE, windowStyle & ~static_cast<LONG>(WS_TABSTOP));
+		}
+
+		return 0;
+	}
+
+	case WM_SETFOCUS:
+		::SendMessageA(hWnd, EM_SETSEL, static_cast<WPARAM>(-1), static_cast<LPARAM>(-1));
+		if (!data.EditFocusRestoreReadyFlag())
+			::PostMessageA(hWnd, WW_EDIT_DEFERFOCUSRESTORE, 0, 0);
+
+		InvalidateNewEdit(hWnd, parentHwnd);
+		return forwardOriginal();
+
+	case WW_GETTEXTW:
+		return CopyEditTextW(hWnd, wParam, lParam);
+
+	case WW_GETTEXTA:
+		return CopyEditTextA(hWnd, wParam, lParam);
+
+	case WM_GETTEXTLENGTH:
+	{
+		std::vector<wchar_t> text(0x800);
+		return static_cast<LRESULT>(GetEditWideText(hWnd, text.data(), static_cast<int>(text.size()), nullptr));
+	}
+
+	case WW_SETTEXTW:
+	case WW_SETTEXTA:
+		return ForwardEditSetText(data, hWnd, pOriginalWndProc);
+
+	case WM_CHAR:
+		if (wParam == VK_RETURN)
+		{
+			if (windowStyle & ES_MULTILINE)
+				return AppendEditNewLine(hWnd, pOriginalWndProc);
+
+			return forwardOriginal();
+		}
+
+		if (wParam == VK_TAB)
+		{
+			if (const HWND nextHwnd = ::GetNextDlgTabItem(parentHwnd, hWnd, FALSE))
+				::SetFocus(nextHwnd);
+			else
+				::SetFocus(hWnd);
+
+			return 0;
+		}
+
+		return forwardOriginal();
+
+	case WW_EDIT_RESTOREFOCUS:
+		data.EditFocusRestoreReadyFlag() = 1;
+		if (data.EditFocusRestorePendingFlag())
+		{
+			::SetFocus(hWnd);
+			data.EditFocusRestorePendingFlag() = 0;
+		}
+
+		if (data.EditRestoreTabStopFlag())
+			::SetWindowLongA(hWnd, GWL_STYLE, windowStyle | WS_TABSTOP);
+
+		return 0;
+
+	case WM_PAINT:
+	case WM_ERASEBKGND:
+		PaintEdit(hWnd, data, parentHwnd, message);
+		break;
+
+	case WM_CONTEXTMENU:
+		return 1;
+
+	case WM_MOUSEMOVE:
+		return 1;
+
+	default:
+		break;
+	}
+
+	switch (message)
+	{
+	case WM_KEYDOWN:
+	case WM_KEYUP:
+	case WM_SYSKEYDOWN:
+	case WM_SYSKEYUP:
+	case WM_SYSCHAR:
+	case WM_SYSDEADCHAR:
+	case WM_KILLFOCUS:
+	case WM_LBUTTONDOWN:
+		InvalidateNewEdit(hWnd, parentHwnd);
+		break;
+
+	default:
+		break;
+	}
+
+	return forwardOriginal();
 }
 
 LRESULT CALLBACK WWUI::NewEditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
