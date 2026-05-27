@@ -17,4 +17,5 @@ namespace WWUI
 	LRESULT CALLBACK TabCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK GroupBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK OwnerDrawCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 }

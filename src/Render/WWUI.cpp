@@ -2521,6 +2521,102 @@ namespace
 		return 0;
 	}
 
+	constexpr int CheckboxArtSize = 18;
+	constexpr int CheckboxTextOffset = 26;
+	constexpr int CheckboxTextStyle = 4;
+	constexpr int CheckboxTextAlign = 12;
+
+	const char* SelectCheckboxArtName(OwnerDrawDialogElement& data)
+	{
+		const bool checked = data.CheckboxCheckState() == BST_CHECKED;
+
+		if (data.CheckboxUseExtendedArt())
+		{
+			if (checked)
+				return data.CheckboxArtVariant() ? "cce_i.pcx" : "cce_il.pcx";
+
+			return data.CheckboxArtVariant() ? "cce_ir.pcx" : "cue_i.pcx";
+		}
+
+		return checked ? "cce_i.pcx" : "cue_i.pcx";
+	}
+
+	LRESULT PaintCheckboxCtrl(HWND hWnd, OwnerDrawDialogElement& data, LONG windowStyle)
+	{
+		if (!DSurface::Alternate)
+		{
+			::ValidateRect(hWnd, nullptr);
+			return 0;
+		}
+
+		RECT clientRect {};
+		RECT textRect {};
+		RECT ownerRect {};
+		::GetClientRect(hWnd, &clientRect);
+		OwnerDraw::GetRectangle(hWnd, &textRect);
+		OwnerDraw::GetRectangle(hWnd, &ownerRect);
+
+		const RectangleStruct artDest
+		{
+			ownerRect.left,
+			ownerRect.top,
+			CheckboxArtSize,
+			CheckboxArtSize
+		};
+
+		if (auto pArt = GetPCXSurface(SelectCheckboxArtName(data)))
+		{
+			RectangleStruct sourceRect { 0, 0, pArt->GetWidth(), pArt->GetHeight() };
+			CopySurfacePart(DSurface::Alternate, artDest, pArt, sourceRect);
+		}
+
+		if (windowStyle & WS_DISABLED)
+			BlendFillRect(artDest, DSurface::Alternate, 0, OwnerDraw::DisabledOverlayAlpha);
+
+		if (data.TextBuffer)
+		{
+			textRect.left += CheckboxTextOffset;
+			const COLORREF textColor = (windowStyle & WS_DISABLED)
+				? Phobos::UI::ColorDisabledCheckbox
+				: Phobos::UI::ColorTextCheckbox;
+
+			OwnerDraw::DrawWideText(
+				DSurface::Alternate,
+				data.TextBuffer,
+				&textRect,
+				data.CheckboxFont(),
+				textColor,
+				CheckboxTextStyle,
+				CheckboxTextAlign,
+				0,
+				0,
+				0);
+		}
+
+		::ValidateRect(hWnd, nullptr);
+		return 0;
+	}
+
+	bool IsInsideCheckboxArt(LPARAM lParam)
+	{
+		return LOWORD(lParam) < CheckboxArtSize && HIWORD(lParam) < CheckboxArtSize;
+	}
+
+	void NotifyCheckboxClicked(HWND hWnd, int checkState)
+	{
+		if (RulesClass::Instance)
+			VocClass::PlayGlobal(RulesClass::Instance->GUICheckboxSound, 0x2000, 1.0f);
+
+		if (const HWND parentHwnd = ::GetParent(hWnd))
+		{
+			const WPARAM command = static_cast<WPARAM>(
+				(::GetWindowLongA(hWnd, GWL_ID) & 0xFFFF)
+				| ((checkState & 0xFFFF) << 16));
+
+			::SendMessageA(parentHwnd, WM_COMMAND, command, reinterpret_cast<LPARAM>(hWnd));
+		}
+	}
+
 	constexpr int ListBoxScrollBarExtraWidth = 18;
 	constexpr int ListBoxTextEntryInlineBytes = 2;
 
@@ -5951,6 +6047,85 @@ LRESULT CALLBACK WWUI::OwnerDrawCtrl(HWND hWnd, UINT message, WPARAM wParam, LPA
 		}
 
 		return forwardOriginal();
+
+	default:
+		return forwardOriginal();
+	}
+}
+
+LRESULT CALLBACK WWUI::CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	auto pData = FindOwnerDrawData(hWnd);
+	if (!pData)
+		return 0;
+
+	auto& data = *pData;
+	const auto pOriginalWndProc = FindWindowProc(OwnerDraw::DialogProcs, hWnd);
+	auto forwardOriginal = [&]() -> LRESULT
+	{
+		return CallSelectedHandler(pOriginalWndProc, hWnd, message, wParam, lParam);
+	};
+
+	switch (message)
+	{
+	case BM_GETCHECK:
+		return data.CheckboxCheckState();
+
+	case BM_SETCHECK:
+		data.CheckboxCheckState() = static_cast<int>(wParam);
+		::InvalidateRect(hWnd, nullptr, FALSE);
+		return 0;
+
+	case WM_SETFOCUS:
+	case WM_KILLFOCUS:
+		::InvalidateRect(hWnd, nullptr, FALSE);
+		return forwardOriginal();
+
+	case WM_PAINT:
+		if (!data.CheckboxUseNativePaint())
+			return PaintCheckboxCtrl(hWnd, data, ::GetWindowLongA(hWnd, GWL_STYLE));
+
+		return forwardOriginal();
+
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONDBLCLK:
+		if (!IsInsideCheckboxArt(lParam))
+			return 0;
+
+		data.CheckboxCheckState() = data.CheckboxCheckState() == BST_CHECKED ? BST_UNCHECKED : BST_CHECKED;
+		::InvalidateRect(hWnd, nullptr, FALSE);
+		NotifyCheckboxClicked(hWnd, data.CheckboxCheckState());
+		return 0;
+
+	case WW_INITDIALOG:
+		data.CheckboxCheckState() = static_cast<int>(
+			CallSelectedHandler(pOriginalWndProc, hWnd, BM_GETCHECK, 0, 0));
+		return forwardOriginal();
+
+	case WW_CHECKBOX_ENABLEEXTENDEDART:
+	{
+		const bool enabled = lParam != 0;
+		const bool oldArtVariant = data.CheckboxArtVariant();
+		data.CheckboxUseExtendedArt() = enabled;
+		if (oldArtVariant != enabled)
+			::InvalidateRect(hWnd, nullptr, FALSE);
+
+		return forwardOriginal();
+	}
+
+	case WW_CHECKBOX_SETARTVARIANT:
+	{
+		const bool variant = lParam != 0;
+		const bool oldArtVariant = data.CheckboxArtVariant();
+		data.CheckboxArtVariant() = variant;
+		if (oldArtVariant != variant)
+			::InvalidateRect(hWnd, nullptr, FALSE);
+
+		return forwardOriginal();
+	}
+
+	case WW_CHECKBOX_GETARTVARIANT:
+		return data.CheckboxArtVariant();
 
 	default:
 		return forwardOriginal();
