@@ -10,6 +10,7 @@
 #include <PCX.h>
 #include <Phobos.h>
 #include <RulesClass.h>
+#include <ScenarioClass.h>
 #include <SessionClass.h>
 #include <StringTable.h>
 #include <UI.h>
@@ -2174,6 +2175,350 @@ namespace
 
 		const WORD color = static_cast<WORD>(ConvertRGBToSurfaceColor(RGB(255, 0, 0)));
 		BlendGradientRect(screenRect, DSurface::Alternate, color, widthScale);
+	}
+
+	constexpr UINT OwnerDrawButtonTimerId = 0;
+	constexpr UINT OwnerDrawButtonTimerInterval = 1000;
+	constexpr int OwnerDrawButtonTextStyle = 5;
+	constexpr int OwnerDrawButtonTextAlign = 12;
+	constexpr BYTE OwnerDrawButtonDisabledOverlayAlpha = 0x80;
+
+	COLORREF MakeOwnerDrawButtonSideTextColor(BYTE red, WORD greenBlue)
+	{
+		const BYTE green = static_cast<BYTE>(greenBlue & 0xFF);
+		const BYTE blue = static_cast<BYTE>((greenBlue >> 8) & 0xFF);
+		const int surfaceColor = Drawing::RGB_To_Int(red, green, blue);
+
+		BYTE outputRed = 0;
+		BYTE outputGreen = 0;
+		BYTE outputBlue = 0;
+		Drawing::Int_To_RGB(surfaceColor, outputRed, outputGreen, outputBlue);
+
+		return static_cast<COLORREF>(
+			outputRed
+			| (static_cast<DWORD>(outputGreen) << 8)
+			| ((static_cast<DWORD>(outputBlue) | 0x200) << 16));
+	}
+
+	COLORREF GetDisabledOwnerDrawButtonTextColor()
+	{
+		if (!SessionClass::Instance.CurrentlyInGame || !ScenarioClass::Instance)
+			return Phobos::UI::ColorDisabledButton;
+
+		switch (ScenarioClass::Instance->PlayerSideIndex)
+		{
+		case 0:
+			return MakeOwnerDrawButtonSideTextColor(
+				OwnerDraw::ButtonDisabledSide0Red,
+				OwnerDraw::ButtonDisabledSide0GreenBlue);
+
+		case 1:
+			return MakeOwnerDrawButtonSideTextColor(
+				OwnerDraw::ButtonDisabledSide1Red,
+				OwnerDraw::ButtonDisabledSide1GreenBlue);
+
+		default:
+			return MakeOwnerDrawButtonSideTextColor(
+				OwnerDraw::ButtonDisabledSideOtherRed,
+				OwnerDraw::ButtonDisabledSideOtherGreenBlue);
+		}
+	}
+
+	void EnsureOwnerDrawButtonCache(OwnerDrawDialogElement& data, const RECT& clientRect, const RECT& ownerRect)
+	{
+		if (data.CacheSurface || !DSurface::Alternate)
+			return;
+
+		const int width = clientRect.right + 1;
+		const int height = clientRect.bottom + 1;
+		if (width <= 0 || height <= 0)
+			return;
+
+		data.CacheSurface = GameCreate<BSurface>(width, height);
+		if (!data.CacheSurface)
+			return;
+
+		++OwnerDraw::CachedSurfaceCount;
+
+		RectangleStruct destRect { 0, 0, width, height };
+		RectangleStruct sourceRect { ownerRect.left, ownerRect.top, width, height };
+		CopySurfacePart(data.CacheSurface, destRect, DSurface::Alternate, sourceRect);
+	}
+
+	void RestoreOwnerDrawButtonCache(HWND hWnd, OwnerDrawDialogElement& data, const RECT& clientRect, const RECT& ownerRect)
+	{
+		if (!data.CacheSurface || !DSurface::Alternate)
+			return;
+
+		const int width = clientRect.right + 1;
+		const int height = clientRect.bottom + 1;
+		if (width <= 0 || height <= 0)
+			return;
+
+		RectangleStruct destRect { ownerRect.left, ownerRect.top, width, height };
+		RectangleStruct sourceRect { 0, 0, width, height };
+		CopySurfacePart(DSurface::Alternate, destRect, data.CacheSurface, sourceRect);
+		::InvalidateRect(hWnd, nullptr, FALSE);
+	}
+
+	bool DrawOwnerDrawButtonShape(
+		OwnerDrawDialogElement& data,
+		const RectangleStruct& controlRect,
+		int drawItemState,
+		LONG windowStyle,
+		COLORREF& textColor)
+	{
+		ConvertClass* pConvert = nullptr;
+		SHPStruct* pShape = nullptr;
+		int frame = 0;
+
+		switch (data.LayoutBand)
+		{
+		case 1:
+			pConvert = OwnerDraw::GetSmallButtonAnimConvert();
+			pShape = OwnerDraw::SmallButtonAnimShape;
+			frame = 2;
+			if (drawItemState & 1)
+				frame = 4;
+			else if (data.OwnerDrawButtonAlternateFrame())
+				frame = 3;
+			break;
+
+		case 2:
+			pConvert = OwnerDraw::GetSideButtonConvert();
+			pShape = OwnerDraw::SideButtonShape;
+			if (drawItemState & 1)
+				frame = 1;
+			else if (data.OwnerDrawButtonAlternateFrame())
+				frame = 2;
+			break;
+
+		case 3:
+			pConvert = OwnerDraw::GetCloseButtonConvert();
+			pShape = OwnerDraw::CloseButtonShape;
+			if (drawItemState & 1)
+				frame = 1;
+			else if (data.OwnerDrawButtonAlternateFrame())
+				frame = 2;
+			break;
+
+		default:
+			break;
+		}
+
+		if (windowStyle & WS_DISABLED)
+			textColor = GetDisabledOwnerDrawButtonTextColor();
+
+		if (!pConvert || !pShape || !DSurface::Alternate)
+			return false;
+
+		Point2D position { controlRect.X, controlRect.Y };
+		RectangleStruct bounds = DSurface::Alternate->GetRect();
+		CC_Draw_Shape(
+			DSurface::Alternate,
+			pConvert,
+			pShape,
+			frame,
+			&position,
+			&bounds,
+			BlitterFlags::bf_400,
+			0,
+			0,
+			ZGradient::Ground,
+			1000,
+			0,
+			nullptr,
+			0,
+			0,
+			0);
+
+		return true;
+	}
+
+	void DrawOwnerDrawButtonImage(
+		OwnerDrawDialogElement& data,
+		const RectangleStruct& controlRect,
+		int drawItemState)
+	{
+		auto pImage = data.ControlImage;
+		if (!pImage)
+			return;
+
+		if ((drawItemState & 1) && data.StateImageSurface)
+			pImage = data.StateImageSurface;
+
+		RectangleStruct sourceRect { 0, 0, controlRect.Width, controlRect.Height };
+		CopySurfacePart(DSurface::Alternate, controlRect, pImage, sourceRect);
+	}
+
+	int SelectOwnerDrawButtonSliceIndex(int height)
+	{
+		return height >= 30 ? 1 : 0;
+	}
+
+	void DrawOwnerDrawButtonSlices(
+		HWND hWnd,
+		OwnerDrawDialogElement& data,
+		const RECT& clientRect,
+		const RECT& ownerRect,
+		RectangleStruct& drawRect,
+		int drawItemState,
+		LONG windowStyle)
+	{
+		const bool pressed = (drawItemState & 1) != 0;
+		char variant = pressed ? 'd' : 'u';
+
+		if (windowStyle & WS_DISABLED)
+		{
+			variant = 'u';
+		}
+		else if (variant == 'd' && OwnerDraw::ButtonSliceVariant == 'u')
+		{
+			VocClass::PlayGlobal(RulesClass::Instance->GenericClick, 0x2000, 1.0f);
+		}
+
+		OwnerDraw::ButtonSliceVariant = variant;
+
+		const int sliceHeights[2] { 24, 30 };
+		const int leftSliceWidths[2] { 7, 10 };
+		const int rightSliceWidths[2] { 7, 10 };
+		const int sliceIndex = SelectOwnerDrawButtonSliceIndex(drawRect.Height);
+		const int sliceHeight = sliceHeights[sliceIndex];
+		const int leftSliceWidth = leftSliceWidths[sliceIndex];
+		const int rightSliceWidth = rightSliceWidths[sliceIndex];
+
+		RestoreOwnerDrawButtonCache(hWnd, data, clientRect, ownerRect);
+
+		drawRect.Y += (drawRect.Height - sliceHeight) / 2;
+		if (pressed)
+			drawRect.Y += 2;
+
+		char filename[32] {};
+
+		std::snprintf(filename, sizeof(filename), "b%c%c_li%d.pcx", variant, 'e', sliceHeight);
+		if (auto pLeft = GetPCXSurface(filename))
+		{
+			drawRect.Height = pLeft->GetHeight();
+			RectangleStruct destRect { drawRect.X, drawRect.Y, leftSliceWidth, sliceHeight };
+			RectangleStruct sourceRect { 0, 0, leftSliceWidth, sliceHeight };
+			CopySurfacePart(DSurface::Alternate, destRect, pLeft, sourceRect);
+		}
+		else
+		{
+			drawRect.Height = sliceHeight;
+		}
+
+		std::snprintf(filename, sizeof(filename), "b%c%c_mi%d.pcx", variant, 'e', sliceHeight);
+		if (auto pMiddle = GetPCXSurface(filename))
+		{
+			RectangleStruct middleRect
+			{
+				drawRect.X + leftSliceWidth,
+				drawRect.Y,
+				drawRect.Width - leftSliceWidth - rightSliceWidth,
+				pMiddle->GetHeight()
+			};
+
+			if (middleRect.Width > 0 && middleRect.Height > 0)
+				BlitTiledPCX(middleRect, DSurface::Alternate, pMiddle, 0, 0);
+		}
+
+		std::snprintf(filename, sizeof(filename), "b%c%c_ri%d.pcx", variant, 'e', sliceHeight);
+		if (auto pRight = GetPCXSurface(filename))
+		{
+			const int rightHeight = pRight->GetHeight();
+			RectangleStruct destRect
+			{
+				drawRect.X + drawRect.Width - rightSliceWidth,
+				drawRect.Y,
+				rightSliceWidth,
+				rightHeight
+			};
+			RectangleStruct sourceRect { 0, 0, rightSliceWidth, rightHeight };
+			CopySurfacePart(DSurface::Alternate, destRect, pRight, sourceRect);
+		}
+	}
+
+	void DrawOwnerDrawButtonText(
+		OwnerDrawDialogElement& data,
+		const RectangleStruct& drawRect,
+		int drawItemState,
+		COLORREF textColor)
+	{
+		if (data.ControlImage || !data.TextBuffer)
+			return;
+
+		RECT textRect
+		{
+			drawRect.X,
+			drawRect.Y + 1,
+			drawRect.X + drawRect.Width - 2,
+			drawRect.Y + drawRect.Height
+		};
+
+		if (drawItemState & 1)
+		{
+			textRect.left = drawRect.X + 2;
+			textRect.top += 4;
+		}
+
+		OwnerDraw::DrawWideText(
+			DSurface::Alternate,
+			data.TextBuffer,
+			&textRect,
+			data.OwnerDrawButtonFont(),
+			textColor,
+			OwnerDrawButtonTextStyle,
+			OwnerDrawButtonTextAlign,
+			0,
+			0,
+			0);
+	}
+
+	LRESULT PaintOwnerDrawButton(HWND hWnd, OwnerDrawDialogElement& data, LONG windowStyle)
+	{
+		if (data.SkipDraw)
+		{
+			::ValidateRect(hWnd, nullptr);
+			return 0;
+		}
+
+		RECT ownerRect {};
+		RECT clientRect {};
+		OwnerDraw::GetRectangle(hWnd, &ownerRect);
+		::GetClientRect(hWnd, &clientRect);
+
+		const int width = ownerRect.right - ownerRect.left;
+		const int height = ownerRect.bottom - ownerRect.top;
+		RectangleStruct controlRect { ownerRect.left, ownerRect.top, width, height };
+		RectangleStruct drawRect = controlRect;
+
+		if (DSurface::Alternate)
+		{
+			EnsureOwnerDrawButtonCache(data, clientRect, ownerRect);
+
+			COLORREF textColor = Phobos::UI::ColorTextButton;
+			if (data.LayoutBand)
+			{
+				DrawOwnerDrawButtonShape(data, controlRect, data.DrawItemState, windowStyle, textColor);
+			}
+			else if (data.ControlImage)
+			{
+				DrawOwnerDrawButtonImage(data, controlRect, data.DrawItemState);
+			}
+			else
+			{
+				DrawOwnerDrawButtonSlices(hWnd, data, clientRect, ownerRect, drawRect, data.DrawItemState, windowStyle);
+			}
+
+			DrawOwnerDrawButtonText(data, drawRect, data.DrawItemState, textColor);
+
+			if (!data.LayoutBand && (windowStyle & WS_DISABLED))
+				BlendFillRect(controlRect, DSurface::Alternate, 0, OwnerDrawButtonDisabledOverlayAlpha);
+		}
+
+		::ValidateRect(hWnd, nullptr);
+		return 0;
 	}
 
 	constexpr int ListBoxScrollBarExtraWidth = 18;
@@ -5548,6 +5893,67 @@ LRESULT CALLBACK WWUI::GroupBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 
 	default:
 		return CallSelectedHandler(FindWindowProc(OwnerDraw::DialogProcs, hWnd), hWnd, message, wParam, lParam);
+	}
+}
+
+LRESULT CALLBACK WWUI::OwnerDrawCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	const auto pOriginalWndProc = FindWindowProc(OwnerDraw::DialogProcs, hWnd);
+	auto forwardOriginal = [&]() -> LRESULT
+	{
+		return CallSelectedHandler(pOriginalWndProc, hWnd, message, wParam, lParam);
+	};
+
+	auto pData = FindOwnerDrawData(hWnd);
+	if (!pData)
+		return forwardOriginal();
+
+	auto& data = *pData;
+
+	switch (message)
+	{
+	case WM_ACTIVATE:
+	case WM_KILLFOCUS:
+	case WM_MOUSEACTIVATE:
+		return 0;
+
+	case WM_PAINT:
+		return PaintOwnerDrawButton(hWnd, data, ::GetWindowLongA(hWnd, GWL_STYLE));
+
+	case WM_TIMER:
+		data.OwnerDrawButtonAlternateFrame() = !data.OwnerDrawButtonAlternateFrame();
+		::InvalidateRect(hWnd, nullptr, TRUE);
+		return forwardOriginal();
+
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONDBLCLK:
+		if (data.SkipDraw)
+			return 0;
+
+		VocClass::PlayGlobal(RulesClass::Instance->GUIMainButtonSound, 0x2000, 1.0f);
+		return forwardOriginal();
+
+	case WW_BUTTON_SETANIMATED:
+		if (lParam == 1)
+		{
+			if (!data.OwnerDrawButtonTimerActive())
+			{
+				data.OwnerDrawButtonTimerActive() = true;
+				::SetTimer(hWnd, OwnerDrawButtonTimerId, OwnerDrawButtonTimerInterval, nullptr);
+			}
+		}
+		else if (data.OwnerDrawButtonTimerActive())
+		{
+			data.OwnerDrawButtonTimerActive() = false;
+			data.OwnerDrawButtonAlternateFrame() = false;
+			::KillTimer(hWnd, OwnerDrawButtonTimerId);
+			::InvalidateRect(hWnd, nullptr, TRUE);
+		}
+
+		return forwardOriginal();
+
+	default:
+		return forwardOriginal();
 	}
 }
 
