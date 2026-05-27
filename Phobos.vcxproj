@@ -283,6 +283,7 @@
     <ClCompile Include="src\Render\Surface.cpp" />
     <ClCompile Include="src\Render\Surface.Hooks.cpp" />
     <!-- src\Utilities -->
+    <ClCompile Include="src\Render\WWUI.Hooks.cpp" />
     <ClCompile Include="src\Utilities\Anchor.cpp" />
     <ClCompile Include="src\Utilities\AresAddressInit.cpp" />
     <ClCompile Include="src\Utilities\AresHelper.cpp" />
