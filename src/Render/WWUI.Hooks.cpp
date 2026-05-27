@@ -130,4 +130,6 @@ static BOOL __fastcall MoveIngameWindowControls(HWND hWnd)
 }
 DEFINE_FUNCTION_JUMP(LJMP, 0x60B7A0, MoveIngameWindowControls);
 
+DEFINE_PATCH_TYPED(void*, 0x60FF06, WWUI::OwnerDrawWindowProc);
+DEFINE_FUNCTION_JUMP(LJMP, 0x610CA0, WWUI::OwnerDrawWindowProc);
 DEFINE_FUNCTION_JUMP(LJMP, 0x622B50, WWUI::OwnerDrawStandardWndProc);
