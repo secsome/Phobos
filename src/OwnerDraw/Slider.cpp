@@ -302,11 +302,7 @@ LRESULT CALLBACK WWUI::SliderCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 		if (valueChanged)
 		{
 			::InvalidateRect(hWnd, nullptr, FALSE);
-
-			const WPARAM scrollParam = static_cast<WPARAM>(
-				((positionOffset + rangeMin) & 0xFFFF) << 16
-				| SB_THUMBPOSITION);
-			::SendMessageA(::GetParent(hWnd), WM_HSCROLL, scrollParam, reinterpret_cast<LPARAM>(hWnd));
+			::SendMessageA(::GetParent(hWnd), WM_HSCROLL, MAKELONG(SB_THUMBTRACK, positionOffset + rangeMin), reinterpret_cast<LPARAM>(hWnd));
 
 			if (playClickSound == 1 && !data.SliderSuppressClickSound() && RulesClass::Instance)
 				VocClass::PlayGlobal(RulesClass::Instance->GenericClick, 0x2000, 1.0f);
