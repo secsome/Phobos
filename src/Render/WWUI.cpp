@@ -2617,6 +2617,190 @@ namespace
 		}
 	}
 
+	constexpr int RadioTextStyle = 5;
+	constexpr int RadioTextAlign = 12;
+	constexpr BYTE RadioDisabledOverlayAlpha = 0x80;
+
+	void EnsureRadioCache(OwnerDrawDialogElement& data, const RECT& clientRect, const RECT& ownerRect)
+	{
+		if (data.CacheSurface || !DSurface::Alternate)
+			return;
+
+		const int width = clientRect.right + 1;
+		const int height = clientRect.bottom + 1;
+		if (width <= 0 || height <= 0)
+			return;
+
+		data.CacheSurface = GameCreate<BSurface>(width, height);
+		if (!data.CacheSurface)
+			return;
+
+		++OwnerDraw::CachedSurfaceCount;
+
+		RectangleStruct destRect { 0, 0, width, height };
+		RectangleStruct sourceRect { ownerRect.left, ownerRect.top, width, height };
+		CopySurfacePart(data.CacheSurface, destRect, DSurface::Alternate, sourceRect);
+	}
+
+	void RestoreRadioCache(HWND hWnd, OwnerDrawDialogElement& data, const RECT& clientRect, const RECT& ownerRect)
+	{
+		if (!data.CacheSurface || !DSurface::Alternate)
+			return;
+
+		const int width = clientRect.right + 1;
+		const int height = clientRect.bottom + 1;
+		if (width <= 0 || height <= 0)
+			return;
+
+		RectangleStruct destRect { ownerRect.left, ownerRect.top, width, height };
+		RectangleStruct sourceRect { 0, 0, width, height };
+		CopySurfacePart(DSurface::Alternate, destRect, data.CacheSurface, sourceRect);
+		::InvalidateRect(hWnd, nullptr, FALSE);
+	}
+
+	int SelectRadioSliceHeight(int controlHeight)
+	{
+		return controlHeight >= 30 ? 30 : 24;
+	}
+
+	void DrawRadioImage(OwnerDrawDialogElement& data, const RectangleStruct& controlRect, int selected)
+	{
+		auto pImage = data.ControlImage;
+		if (selected && data.StateImageSurface)
+			pImage = data.StateImageSurface;
+
+		if (!pImage)
+			return;
+
+		RectangleStruct sourceRect { 0, 0, controlRect.Width, controlRect.Height };
+		CopySurfacePart(DSurface::Alternate, controlRect, pImage, sourceRect);
+	}
+
+	void DrawRadioSlices(
+		HWND hWnd,
+		OwnerDrawDialogElement& data,
+		const RECT& clientRect,
+		const RECT& ownerRect,
+		const RectangleStruct& controlRect,
+		LONG windowStyle,
+		int selected)
+	{
+		char variant = selected ? 'd' : 'u';
+		if (windowStyle & WS_DISABLED)
+			variant = 'u';
+
+		const int sliceHeight = SelectRadioSliceHeight(controlRect.Height);
+		const int leftSliceWidth = 7;
+		const int rightSliceWidth = 10;
+
+		RestoreRadioCache(hWnd, data, clientRect, ownerRect);
+
+		const int sliceY = controlRect.Y + (controlRect.Height - sliceHeight) / 2 + (selected ? 2 : 0);
+		char filename[32] {};
+
+		std::snprintf(filename, sizeof(filename), "b%c%c_li%d.pcx", variant, 'e', sliceHeight);
+		if (auto pLeft = GetPCXSurface(filename))
+		{
+			RectangleStruct destRect { controlRect.X, sliceY, leftSliceWidth, sliceHeight };
+			RectangleStruct sourceRect { 0, 0, leftSliceWidth, sliceHeight };
+			CopySurfacePart(DSurface::Alternate, destRect, pLeft, sourceRect);
+		}
+
+		std::snprintf(filename, sizeof(filename), "b%c%c_mi%d.pcx", variant, 'e', sliceHeight);
+		if (auto pMiddle = GetPCXSurface(filename))
+		{
+			RectangleStruct middleRect
+			{
+				controlRect.X + leftSliceWidth,
+				sliceY,
+				controlRect.Width - rightSliceWidth,
+				pMiddle->GetHeight()
+			};
+
+			BlitTiledPCX(middleRect, DSurface::Alternate, pMiddle, 0, 0);
+		}
+
+		std::snprintf(filename, sizeof(filename), "b%c%c_ri%d.pcx", variant, 'e', sliceHeight);
+		if (auto pRight = GetPCXSurface(filename))
+		{
+			const int rightHeight = pRight->GetHeight();
+			RectangleStruct destRect
+			{
+				controlRect.X + controlRect.Width - rightSliceWidth,
+				sliceY,
+				rightSliceWidth,
+				rightHeight
+			};
+			RectangleStruct sourceRect { 0, 0, rightSliceWidth, rightHeight };
+			CopySurfacePart(DSurface::Alternate, destRect, pRight, sourceRect);
+		}
+
+		if (data.TextBuffer)
+		{
+			RECT textRect
+			{
+				controlRect.X,
+				sliceY + 1,
+				controlRect.X + controlRect.Width - 2,
+				sliceY + controlRect.Height - 2
+			};
+
+			if (selected)
+			{
+				textRect.left += 2;
+				textRect.top += 4;
+			}
+
+			OwnerDraw::DrawWideText(
+				DSurface::Alternate,
+				data.TextBuffer,
+				&textRect,
+				data.RadioFont(),
+				Phobos::UI::ColorTextRadio,
+				RadioTextStyle,
+				RadioTextAlign,
+				0,
+				0,
+				0);
+		}
+	}
+
+	LRESULT PaintRadioCtrl(HWND hWnd, OwnerDrawDialogElement& data, LONG windowStyle)
+	{
+		if (!DSurface::Alternate)
+		{
+			::ValidateRect(hWnd, nullptr);
+			return 0;
+		}
+
+		RECT ownerRect {};
+		RECT clientRect {};
+		OwnerDraw::GetRectangle(hWnd, &ownerRect);
+		::GetClientRect(hWnd, &clientRect);
+
+		const int width = ownerRect.right - ownerRect.left;
+		const int height = ownerRect.bottom - ownerRect.top;
+		RectangleStruct controlRect { ownerRect.left, ownerRect.top, width, height };
+
+		EnsureRadioCache(data, clientRect, ownerRect);
+
+		const int selected = data.RadioCheckState() & 1;
+		if (data.ControlImage)
+		{
+			DrawRadioImage(data, controlRect, selected);
+		}
+		else
+		{
+			DrawRadioSlices(hWnd, data, clientRect, ownerRect, controlRect, windowStyle, selected);
+		}
+
+		if (windowStyle & WS_DISABLED)
+			BlendFillRect(controlRect, DSurface::Alternate, 0, RadioDisabledOverlayAlpha);
+
+		::ValidateRect(hWnd, nullptr);
+		return 0;
+	}
+
 	constexpr int ListBoxScrollBarExtraWidth = 18;
 	constexpr int ListBoxTextEntryInlineBytes = 2;
 
@@ -6126,6 +6310,63 @@ LRESULT CALLBACK WWUI::CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPAR
 
 	case WW_CHECKBOX_GETARTVARIANT:
 		return data.CheckboxArtVariant();
+
+	default:
+		return forwardOriginal();
+	}
+}
+
+LRESULT CALLBACK WWUI::RadioCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	auto pData = FindOwnerDrawData(hWnd);
+	if (!pData)
+		return 0;
+
+	auto& data = *pData;
+	const auto pOriginalWndProc = FindWindowProc(OwnerDraw::DialogProcs, hWnd);
+	auto forwardOriginal = [&]() -> LRESULT
+	{
+		return CallSelectedHandler(pOriginalWndProc, hWnd, message, wParam, lParam);
+	};
+
+	switch (message)
+	{
+	case BM_GETCHECK:
+		return data.RadioCheckState();
+
+	case BM_SETCHECK:
+		data.RadioCheckState() = static_cast<int>(wParam);
+		::InvalidateRect(hWnd, nullptr, TRUE);
+		return forwardOriginal();
+
+	case WM_PAINT:
+		return PaintRadioCtrl(hWnd, data, ::GetWindowLongA(hWnd, GWL_STYLE));
+
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONDBLCLK:
+		if (data.RadioCheckState())
+			return 0;
+
+		data.RadioCheckState() = BST_CHECKED;
+		::InvalidateRect(hWnd, nullptr, TRUE);
+
+		if (RulesClass::Instance)
+			VocClass::PlayGlobal(RulesClass::Instance->GenericClick, 0x2000, 1.0f);
+
+		return forwardOriginal();
+
+	case WM_LBUTTONUP:
+		::LockWindowUpdate(::GetParent(hWnd));
+		{
+			const LRESULT result = forwardOriginal();
+			::LockWindowUpdate(nullptr);
+			return result;
+		}
+
+	case WW_INITDIALOG:
+		data.RadioCheckState() = static_cast<int>(
+			CallSelectedHandler(pOriginalWndProc, hWnd, BM_GETCHECK, 0, 0));
+		return forwardOriginal();
 
 	default:
 		return forwardOriginal();
