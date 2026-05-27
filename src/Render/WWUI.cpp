@@ -20,8 +20,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cwchar>
+#include <cstring>
 #include <iterator>
+#include <new>
+#include <string>
 #include <vector>
 
 namespace
@@ -2215,6 +2219,399 @@ namespace
 		pBuffer[capacity - 1] = '\0';
 	}
 
+	UINT GetCurrentKeyboardCodePage()
+	{
+		char buffer[7] {};
+		const WORD language = LOWORD(::GetKeyboardLayout(0));
+		const LCID locale = MAKELCID(language, SORT_DEFAULT);
+
+		if (!::GetLocaleInfoA(locale, LOCALE_IDEFAULTANSICODEPAGE, buffer, static_cast<int>(std::size(buffer))))
+			return CP_ACP;
+
+		const int codePage = std::atoi(buffer);
+		return codePage > 0 ? static_cast<UINT>(codePage) : CP_ACP;
+	}
+
+	wchar_t LocalizeCharacter(char character)
+	{
+		wchar_t result {};
+		::MultiByteToWideChar(GetCurrentKeyboardCodePage(), MB_USEGLYPHCHARS, &character, 1, &result, 1);
+		return result;
+	}
+
+	WideWstring* EnsureNewEditText(OwnerDrawDialogElement& data)
+	{
+		if (!data.NewEditText())
+		{
+			auto pMemory = YRMemory::Allocate(sizeof(WideWstring));
+			if (!pMemory)
+				return nullptr;
+
+			data.NewEditText() = new (pMemory) WideWstring();
+		}
+
+		return data.NewEditText();
+	}
+
+	const wchar_t* NewEditTextBuffer(OwnerDrawDialogElement& data)
+	{
+		const auto pText = EnsureNewEditText(data);
+		return pText && pText->Buffer ? pText->Buffer : L"";
+	}
+
+	int NewEditTextLength(OwnerDrawDialogElement& data)
+	{
+		const auto pText = EnsureNewEditText(data);
+		return pText ? static_cast<int>(pText->GetLength()) : 0;
+	}
+
+	void SetNewEditText(OwnerDrawDialogElement& data, const wchar_t* pText)
+	{
+		if (auto pTarget = EnsureNewEditText(data))
+			*pTarget = pText ? pText : L"";
+	}
+
+	void TrimNewEditTextToLimit(OwnerDrawDialogElement& data)
+	{
+		const int limit = data.NewEditTextLimit();
+		if (limit <= 0)
+			return;
+
+		if (NewEditTextLength(data) <= limit)
+			return;
+
+		std::wstring value(NewEditTextBuffer(data), limit);
+		SetNewEditText(data, value.c_str());
+
+		if (data.NewEditCaretIndex() > limit)
+			data.NewEditCaretIndex() = limit;
+	}
+
+	bool RemoveNewEditTextRange(OwnerDrawDialogElement& data, int index, int length)
+	{
+		std::wstring value(NewEditTextBuffer(data));
+		if (index < 0 || length <= 0 || index >= static_cast<int>(value.size()))
+			return false;
+
+		length = std::min(length, static_cast<int>(value.size()) - index);
+		value.erase(static_cast<size_t>(index), static_cast<size_t>(length));
+		SetNewEditText(data, value.c_str());
+		data.NewEditCaretIndex() = std::clamp(data.NewEditCaretIndex(), 0, static_cast<int>(value.size()));
+		return true;
+	}
+
+	bool InsertNewEditCharacter(OwnerDrawDialogElement& data, wchar_t character)
+	{
+		if (!character || character <= 0x1F)
+			return false;
+
+		if (data.NewEditAsciiOnly() && character >= 0x100)
+			return false;
+
+		if (data.NewEditRejectChars() && std::wcschr(data.NewEditRejectChars(), character))
+			return false;
+
+		std::wstring value(NewEditTextBuffer(data));
+		if (data.NewEditTextLimit() > 0 && static_cast<int>(value.size()) >= data.NewEditTextLimit())
+			return false;
+
+		int caretIndex = std::clamp(data.NewEditCaretIndex(), 0, static_cast<int>(value.size()));
+		value.insert(value.begin() + caretIndex, character);
+		SetNewEditText(data, value.c_str());
+		data.NewEditCaretIndex() = caretIndex + 1;
+		return true;
+	}
+
+	void NotifyNewEditTextChanged(HWND hWnd, HWND parentHwnd)
+	{
+		if (!parentHwnd)
+			return;
+
+		const int controlId = ::GetWindowLongA(hWnd, GWL_ID) & 0xFFFF;
+		::SendMessageA(parentHwnd, WM_COMMAND, controlId | 0x03000000, reinterpret_cast<LPARAM>(hWnd));
+		::SendMessageA(parentHwnd, WM_COMMAND, controlId | 0x04000000, reinterpret_cast<LPARAM>(hWnd));
+	}
+
+	void NotifyNewEditEnterPressed(HWND hWnd, HWND parentHwnd)
+	{
+		if (parentHwnd)
+			::SendMessageA(parentHwnd, WW_EDIT_ENTERPRESSED, 0, reinterpret_cast<LPARAM>(hWnd));
+	}
+
+	void NotifyNewEditMultilineEnter(HWND hWnd, HWND parentHwnd)
+	{
+		if (!parentHwnd)
+			return;
+
+		const int controlId = ::GetWindowLongA(hWnd, GWL_ID) & 0xFFFF;
+		::SendMessageA(parentHwnd, WM_COMMAND, controlId | 0x05010000, reinterpret_cast<LPARAM>(hWnd));
+	}
+
+	bool IsComboBoxParent(HWND parentHwnd)
+	{
+		if (!parentHwnd)
+			return false;
+
+		char className[32] {};
+		::GetClassNameA(parentHwnd, className, static_cast<int>(std::size(className)));
+		return std::strcmp(className, "ComboBox") == 0;
+	}
+
+	void InvalidateNewEdit(HWND hWnd, HWND parentHwnd)
+	{
+		if (IsComboBoxParent(parentHwnd))
+			::InvalidateRect(parentHwnd, nullptr, FALSE);
+
+		::InvalidateRect(hWnd, nullptr, FALSE);
+	}
+
+	int NewEditTextWidth(BitFont* pFont, const wchar_t* pText)
+	{
+		if (!pText || !pText[0])
+			return 0;
+
+		if (!pFont)
+			pFont = BitFont::Instance;
+
+		if (!pFont)
+			return static_cast<int>(std::wcslen(pText)) * 8;
+
+		int textWidth = 0;
+		int textHeight = 0;
+		pFont->GetTextDimension(pText, &textWidth, &textHeight, 0);
+		return textWidth;
+	}
+
+	int NewEditFitCharacterCount(BitFont* pFont, const wchar_t* pText, int maxWidth)
+	{
+		if (!pText || maxWidth <= 0)
+			return 0;
+
+		const int length = static_cast<int>(std::wcslen(pText));
+		int fitCount = 0;
+
+		for (int count = 1; count <= length; ++count)
+		{
+			std::wstring candidate(pText, pText + count);
+			if (NewEditTextWidth(pFont, candidate.c_str()) > maxWidth)
+				break;
+
+			fitCount = count;
+		}
+
+		return fitCount;
+	}
+
+	int PrintNewEditTextSegment(
+		DSurface* pSurface,
+		RectangleStruct& rect,
+		BitFont* pFont,
+		const std::wstring& text,
+		int start,
+		int end,
+		COLORREF color,
+		int animationPos)
+	{
+		if (end <= start || rect.Width <= 0)
+			return 0;
+
+		const std::wstring segment(text.begin() + start, text.begin() + end);
+		const int width = NewEditTextWidth(pFont, segment.c_str());
+
+		OwnerDraw::PrintTextFixedLength(
+			color,
+			pFont,
+			&rect,
+			segment.c_str(),
+			static_cast<int>(segment.size()),
+			0,
+			0,
+			pSurface,
+			animationPos);
+
+		rect.X += width;
+		rect.Width = std::max(rect.Width - width, 0);
+		return width;
+	}
+
+	void AnimatedNewEditTextPrint(
+		DSurface* pSurface,
+		RectangleStruct textRect,
+		const wchar_t* pText,
+		int caretIndex,
+		BitFont* pFont,
+		COLORREF textColor,
+		int& scrollStart,
+		bool hasFocus,
+		bool maskText,
+		bool fillBackground,
+		int animationPos,
+		int caretBlinkState)
+	{
+		if (!pSurface || textRect.Width <= 0 || textRect.Height <= 0)
+			return;
+
+		if (!pFont)
+			pFont = BitFont::Instance;
+
+		const wchar_t* pSource = pText ? pText : L"";
+		const int sourceLength = static_cast<int>(std::wcslen(pSource));
+		caretIndex = std::clamp(caretIndex, 0, sourceLength);
+
+		int compositionLength = 0;
+		int compositionCursor = 0;
+		bool composing = false;
+		if (hasFocus)
+		{
+			OwnerDraw::UpdateIMECompositionString();
+			compositionLength = std::clamp(OwnerDraw::IMECompositionStringLength, 0, 0x100);
+			compositionCursor = std::clamp(OwnerDraw::IMECompositionCursorPos, 0, compositionLength);
+			composing = OwnerDraw::IMEComposing != 0;
+		}
+
+		constexpr size_t DisplayBufferCapacity = 0x800;
+		std::wstring displayText(pSource);
+		if (displayText.size() >= DisplayBufferCapacity)
+			displayText.resize(DisplayBufferCapacity - 1);
+
+		const int compositionStart = std::min(caretIndex, static_cast<int>(displayText.size()));
+		if (compositionLength > 0)
+		{
+			displayText.insert(
+				displayText.begin() + compositionStart,
+				OwnerDraw::IMECompositionString,
+				OwnerDraw::IMECompositionString + compositionLength);
+
+			if (displayText.size() >= DisplayBufferCapacity)
+				displayText.resize(DisplayBufferCapacity - 1);
+		}
+
+		if (maskText)
+			std::fill(displayText.begin(), displayText.end(), L'*');
+
+		const int displayLength = static_cast<int>(displayText.size());
+		const int compositionEnd = std::min(compositionStart + compositionLength, displayLength);
+		int displayCaret = composing || compositionLength
+			? compositionStart + compositionCursor
+			: std::min(caretIndex, displayLength);
+		displayCaret = std::clamp(displayCaret, 0, displayLength);
+
+		scrollStart = std::clamp(scrollStart, 0, displayLength);
+		if (displayCaret < scrollStart + 5)
+			scrollStart = std::max(displayCaret - 5, 0);
+
+		while (scrollStart < displayLength)
+		{
+			const int visibleCount = NewEditFitCharacterCount(pFont, displayText.c_str() + scrollStart, textRect.Width - 5);
+			if (visibleCount >= displayCaret - scrollStart)
+				break;
+
+			++scrollStart;
+		}
+
+		if (fillBackground)
+		{
+			RectangleStruct fillRect
+			{
+				textRect.X - 1,
+				textRect.Y - 1,
+				NewEditTextWidth(pFont, displayText.c_str() + scrollStart) + 5,
+				textRect.Height + 2
+			};
+			pSurface->FillRect(&fillRect, 0);
+		}
+
+		RectangleStruct drawRect = textRect;
+		int caretX = -1;
+
+		auto drawRange = [&](int rangeStart, int rangeEnd, COLORREF color)
+		{
+			int visibleStart = std::max(rangeStart, scrollStart);
+			int visibleEnd = std::min(rangeEnd, displayLength);
+			if (visibleEnd <= visibleStart)
+				return;
+
+			if (caretX < 0 && displayCaret >= visibleStart && displayCaret <= visibleEnd)
+			{
+				PrintNewEditTextSegment(pSurface, drawRect, pFont, displayText, visibleStart, displayCaret, color, animationPos);
+				caretX = drawRect.X;
+				PrintNewEditTextSegment(pSurface, drawRect, pFont, displayText, displayCaret, visibleEnd, color, animationPos);
+			}
+			else
+			{
+				PrintNewEditTextSegment(pSurface, drawRect, pFont, displayText, visibleStart, visibleEnd, color, animationPos);
+			}
+		};
+
+		drawRange(0, compositionStart, textColor);
+		drawRange(compositionStart, compositionEnd, OwnerDraw::ImeCompositionTextColor);
+		drawRange(compositionEnd, displayLength, textColor);
+
+		if (caretX < 0)
+		{
+			if (displayCaret <= scrollStart)
+				caretX = textRect.X;
+			else if (displayCaret >= displayLength)
+				caretX = drawRect.X;
+		}
+
+		if (hasFocus && caretX >= 0 && !caretBlinkState)
+		{
+			const WORD caretColor = static_cast<WORD>(ConvertRGBToSurfaceColor(Phobos::UI::ColorCaret));
+			Point2D start { caretX, textRect.Y };
+			Point2D end { caretX, textRect.Y + textRect.Height - 2 };
+			DrawAlphaLine(pSurface, start, end, caretColor, 0xFF);
+
+			++start.X;
+			++end.X;
+			DrawAlphaLine(pSurface, start, end, caretColor, 0xFF);
+		}
+	}
+
+	void PaintNewEdit(HWND hWnd, OwnerDrawDialogElement& data, HWND parentHwnd)
+	{
+		if (!DSurface::Alternate)
+			return;
+
+		RECT ownerRect {};
+		OwnerDraw::GetRectangle(hWnd, &ownerRect);
+
+		const int width = ownerRect.right - ownerRect.left + 1;
+		const int height = ownerRect.bottom - ownerRect.top + 1;
+		if (width <= 0 || height <= 0)
+			return;
+
+		RectangleStruct drawRect { ownerRect.left, ownerRect.top, width, height };
+		OwnerDraw::CopyDimmedBackground(&drawRect, hWnd, static_cast<unsigned int>(data.Alpha));
+
+		if (!IsComboBoxParent(parentHwnd))
+			DrawBeveledBorder(DSurface::Alternate, drawRect, 2, -1);
+
+		RectangleStruct textRect
+		{
+			ownerRect.left + 2,
+			ownerRect.top,
+			ownerRect.right - ownerRect.left + 1,
+			ownerRect.bottom - ownerRect.top + 1
+		};
+
+		AnimatedNewEditTextPrint(
+			DSurface::Alternate,
+			textRect,
+			NewEditTextBuffer(data),
+			data.NewEditCaretIndex(),
+			data.NewEditFont(),
+			Phobos::UI::ColorTextEdit,
+			data.NewEditScrollStart(),
+			data.HasFocus != 0,
+			((data.NewEditStyleFlags() >> 5) & 1) != 0,
+			false,
+			0,
+			data.NewEditCaretBlinkState());
+
+		::ValidateRect(hWnd, nullptr);
+	}
+
 	WWUIIntArray* CreateIntArray()
 	{
 		auto pArray = static_cast<WWUIIntArray*>(YRMemory::Allocate(sizeof(WWUIIntArray)));
@@ -4107,6 +4504,245 @@ LRESULT CALLBACK WWUI::ListBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	}
 
 	return finish(forwardOriginal());
+}
+
+LRESULT CALLBACK WWUI::NewEditCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	if (message == WM_GETDLGCODE)
+		return DLGC_WANTALLKEYS;
+
+	auto pData = FindOwnerDrawData(hWnd);
+	const auto pOriginalWndProc = FindWindowProc(OwnerDraw::DialogProcs, hWnd);
+	auto forwardOriginal = [&]() -> LRESULT
+	{
+		return CallSelectedHandler(pOriginalWndProc, hWnd, message, wParam, lParam);
+	};
+
+	if (!pData)
+		return forwardOriginal();
+
+	auto& data = *pData;
+	EnsureNewEditText(data);
+
+	const HWND parentHwnd = ::GetParent(hWnd);
+
+	if ((message == WM_KEYDOWN || message == WM_KEYUP) && wParam == VK_TAB)
+	{
+		if (message == WM_KEYDOWN && parentHwnd)
+		{
+			const WPARAM shiftPressed = (::GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0;
+			::SendMessageA(parentHwnd, WW_EDIT_TABNAV, shiftPressed, reinterpret_cast<LPARAM>(hWnd));
+		}
+
+		return 0;
+	}
+
+	auto copyWideText = [&]() -> LRESULT
+	{
+		const int capacity = static_cast<int>(wParam);
+		auto pBuffer = reinterpret_cast<wchar_t*>(lParam);
+		if (!pBuffer || capacity <= 0)
+			return 0;
+
+		const auto pText = NewEditTextBuffer(data);
+		std::wcsncpy(pBuffer, pText, capacity - 1);
+		pBuffer[capacity - 1] = L'\0';
+		return static_cast<LRESULT>(std::wcslen(pBuffer));
+	};
+
+	auto copyAnsiText = [&]() -> LRESULT
+	{
+		const int capacity = static_cast<int>(wParam);
+		auto pBuffer = reinterpret_cast<char*>(lParam);
+		if (!pBuffer || capacity <= 0)
+			return 0;
+
+		WideToCharString(pBuffer, capacity, NewEditTextBuffer(data));
+		return static_cast<LRESULT>(std::strlen(pBuffer));
+	};
+
+	auto handleInputCharacter = [&](wchar_t character, bool consumedInput) -> LRESULT
+	{
+		if (!character)
+			return consumedInput ? 0 : forwardOriginal();
+
+		if (InsertNewEditCharacter(data, character))
+			NotifyNewEditTextChanged(hWnd, parentHwnd);
+
+		return 0;
+	};
+
+	switch (message)
+	{
+	case WW_INITDIALOG:
+	{
+		if (!parentHwnd)
+			return 0;
+
+		RECT windowRect {};
+		RECT clientRect {};
+		RECT parentRect {};
+		::GetWindowRect(hWnd, &windowRect);
+		::GetClientRect(hWnd, &clientRect);
+		::GetWindowRect(parentHwnd, &parentRect);
+
+		::SetWindowPos(
+			hWnd,
+			nullptr,
+			windowRect.left - parentRect.left + 1,
+			windowRect.top - parentRect.top + 1,
+			clientRect.right - 2,
+			clientRect.bottom - 2,
+			SWP_SHOWWINDOW);
+		return 0;
+	}
+
+	case EM_LIMITTEXT:
+		data.NewEditTextLimit() = static_cast<int>(wParam);
+		TrimNewEditTextToLimit(data);
+		return forwardOriginal();
+
+	case WW_GETTEXTW:
+		return copyWideText();
+
+	case WW_GETTEXTA:
+		return copyAnsiText();
+
+	case WM_GETTEXTLENGTH:
+		return NewEditTextLength(data);
+
+	case WW_SETTEXTW:
+	case WW_SETTEXTA:
+		SetNewEditText(data, data.TextBuffer ? data.TextBuffer : L"");
+		data.NewEditCaretIndex() = 0;
+		data.NewEditScrollStart() = 0;
+		TrimNewEditTextToLimit(data);
+		data.NewEditCaretIndex() = NewEditTextLength(data);
+		break;
+
+	case WM_KEYDOWN:
+		if (wParam == VK_RETURN)
+		{
+			NotifyNewEditEnterPressed(hWnd, parentHwnd);
+			if (data.NewEditStyleFlags() & 4)
+			{
+				if (auto pText = EnsureNewEditText(data))
+					*pText += L"\r\n";
+
+				NotifyNewEditMultilineEnter(hWnd, parentHwnd);
+			}
+			return 0;
+		}
+		break;
+
+	case WM_SETFOCUS:
+		data.NewEditCaretBlinkState() = 0;
+		::SetTimer(hWnd, 0, 1000, nullptr);
+		InvalidateNewEdit(hWnd, parentHwnd);
+		return forwardOriginal();
+
+	case WM_KILLFOCUS:
+		::KillTimer(hWnd, 0);
+		InvalidateNewEdit(hWnd, parentHwnd);
+		return forwardOriginal();
+
+	case WM_TIMER:
+		data.NewEditCaretBlinkState() ^= 1;
+		::InvalidateRect(hWnd, nullptr, FALSE);
+		return forwardOriginal();
+
+	case WM_PAINT:
+	case WM_ERASEBKGND:
+		PaintNewEdit(hWnd, data, parentHwnd);
+		break;
+
+	case WM_CONTEXTMENU:
+		return 1;
+
+	case WM_MOUSEMOVE:
+		return 1;
+
+	default:
+		break;
+	}
+
+	switch (message)
+	{
+	case WM_KEYDOWN:
+	case WM_KEYUP:
+	case WM_SYSKEYDOWN:
+	case WM_SYSKEYUP:
+	case WM_SYSCHAR:
+	case WM_SYSDEADCHAR:
+	case WM_LBUTTONDOWN:
+		InvalidateNewEdit(hWnd, parentHwnd);
+		break;
+
+	default:
+		break;
+	}
+
+	if (message == WM_CHAR)
+	{
+		if (wParam <= 0x1F)
+			return forwardOriginal();
+
+		return handleInputCharacter(LocalizeCharacter(static_cast<char>(wParam)), true);
+	}
+
+	if (message == WM_KEYDOWN)
+	{
+		bool textChanged = false;
+		switch (wParam)
+		{
+		case VK_BACK:
+			if (data.NewEditCaretIndex() > 0)
+			{
+				--data.NewEditCaretIndex();
+				textChanged = RemoveNewEditTextRange(data, data.NewEditCaretIndex(), 1);
+			}
+			break;
+
+		case VK_DELETE:
+			if (data.NewEditCaretIndex() < NewEditTextLength(data))
+				textChanged = RemoveNewEditTextRange(data, data.NewEditCaretIndex(), 1);
+			break;
+
+		case VK_END:
+			data.NewEditCaretIndex() = NewEditTextLength(data);
+			return 0;
+
+		case VK_HOME:
+			data.NewEditCaretIndex() = 0;
+			return 0;
+
+		case VK_LEFT:
+			if (data.NewEditCaretIndex() > 0)
+				--data.NewEditCaretIndex();
+			return 0;
+
+		case VK_RIGHT:
+			if (data.NewEditCaretIndex() < NewEditTextLength(data))
+				++data.NewEditCaretIndex();
+			return 0;
+
+		default:
+			return forwardOriginal();
+		}
+
+		if (textChanged)
+			NotifyNewEditTextChanged(hWnd, parentHwnd);
+
+		return 0;
+	}
+
+	if (message == WM_IME_CHAR)
+		return handleInputCharacter(OwnerDraw::ConvertIMECharToWide(static_cast<UINT>(wParam), lParam), true);
+
+	if (message == WW_EDIT_INPUTCHARW)
+		return handleInputCharacter(static_cast<wchar_t>(wParam), true);
+
+	return forwardOriginal();
 }
 
 LRESULT CALLBACK WWUI::ComboBoxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
