@@ -19,4 +19,5 @@ namespace WWUI
 	LRESULT CALLBACK OwnerDrawCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK CheckboxCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK RadioCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK InputCtrl(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 }
