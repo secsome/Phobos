@@ -1,5 +1,7 @@
 #include <Utilities/Macro.h>
 
+#include "WWUI.h"
+
 #include <Unsorted.h>
 #include <Drawing.h>
 #include <SessionClass.h>
@@ -127,3 +129,5 @@ static BOOL __fastcall MoveIngameWindowControls(HWND hWnd)
 	return ::MoveWindow(hWnd, x, y, rect.right - rect.left, rect.bottom - rect.top, FALSE);
 }
 DEFINE_FUNCTION_JUMP(LJMP, 0x60B7A0, MoveIngameWindowControls);
+
+DEFINE_FUNCTION_JUMP(LJMP, 0x622B50, WWUI::OwnerDrawStandardWndProc);

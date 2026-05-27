@@ -1,0 +1,8 @@
+#pragma once
+
+#include <windows.h>
+
+namespace WWUI
+{
+	LRESULT __fastcall OwnerDrawStandardWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+}
